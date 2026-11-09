@@ -6,8 +6,7 @@ DEFAULT_CONFIG_DIR = Path.home() / ".config" / "whatsapp_ai_agent"
 CONFIG_FILE_PATH = DEFAULT_CONFIG_DIR / "config.json"
 
 DEFAULT_SETTINGS = {
-    "device_id": "192.168.0.140:35105",
-    "prefer_usb": True,
+    "device_id": "",
     "gemini_api_key": os.environ.get("GEMINI_API_KEY", ""),
     "agent_name": "Personal AI Assistant",
     "cooldown_seconds": 8,

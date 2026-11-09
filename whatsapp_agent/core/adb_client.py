@@ -4,15 +4,15 @@ import base64
 import os
 
 class ADBClient:
-    def __init__(self, device_id=None, prefer_usb=True):
+    def __init__(self, device_id=None, prefer_usb=None):
         self.device_id = device_id
-        self.prefer_usb = prefer_usb
-        self.connection_type = "Unknown"
+        self.connection_type = "Wi-Fi"
 
     def run_adb(self, cmd_args, check=False, binary=False):
         """Executes an adb command targeting the configured device."""
         prefix = ["adb"]
-        if self.device_id:
+        # connect and pair are client commands that don't accept '-s'
+        if self.device_id and cmd_args and cmd_args[0] not in ("connect", "pair", "devices"):
             prefix += ["-s", self.device_id]
         full_cmd = prefix + cmd_args
         try:
@@ -27,8 +27,9 @@ class ADBClient:
 
     def auto_detect_device(self):
         """
-        Scans 'adb devices -l' and prioritizes USB Debugging over Wi-Fi/Wireless ADB.
-        Returns: (device_serial, connection_type) or (None, None)
+        Scans 'adb devices -l' for active Wi-Fi/Wireless ADB connections.
+        USB devices are strictly ignored.
+        Returns: (device_serial, 'Wi-Fi') or (None, None)
         """
         try:
             res = subprocess.run(["adb", "devices", "-l"], capture_output=True, text=True, errors="replace")
@@ -36,26 +37,16 @@ class ADBClient:
         except Exception:
             return None, None
 
-        usb_devices = []
         wifi_devices = []
 
         for line in lines:
             parts = line.split()
             if len(parts) >= 2 and parts[1] == "device":
                 serial = parts[0]
-                # Identify USB devices (hardware serial or contains usb: transport)
-                if "usb:" in line or ":" not in serial:
-                    usb_devices.append(serial)
-                else:
+                # Wi-Fi devices have an IP:Port format containing ':'
+                if ":" in serial and "usb:" not in line:
                     wifi_devices.append(serial)
 
-        # Prioritize USB if available and requested
-        if self.prefer_usb and usb_devices:
-            self.device_id = usb_devices[0]
-            self.connection_type = "USB"
-            return self.device_id, "USB"
-
-        # Otherwise fallback to Wi-Fi devices
         if wifi_devices:
             # If user configured a specific Wi-Fi device that is online, prefer it
             if self.device_id and self.device_id in wifi_devices:
@@ -65,28 +56,77 @@ class ADBClient:
             self.connection_type = "Wi-Fi"
             return self.device_id, "Wi-Fi"
 
-        # If USB exists but prefer_usb was False, use USB as fallback
-        if usb_devices:
-            self.device_id = usb_devices[0]
-            self.connection_type = "USB"
-            return self.device_id, "USB"
-
         return None, None
 
+    def connect_wifi(self, ip_port):
+        """Connects to a Wireless ADB target via IP:Port."""
+        if not ip_port:
+            return False
+        clean_target = ip_port.strip()
+        try:
+            res = subprocess.run(["adb", "connect", clean_target], capture_output=True, text=True, timeout=10)
+            time.sleep(1.0)
+            if "connected to" in res.stdout.lower():
+                self.device_id = clean_target
+                self.connection_type = "Wi-Fi"
+                return True
+        except Exception:
+            pass
+
+        # Re-verify through auto_detect_device
+        detected_id, _ = self.auto_detect_device()
+        if detected_id and (detected_id == clean_target or not self.device_id):
+            self.device_id = detected_id
+            self.connection_type = "Wi-Fi"
+            return True
+        return False
+
+    def pair_wifi(self, pairing_ip_port, pairing_code):
+        """Pairs with Android Wireless Debugging using 6-digit code."""
+        if not pairing_ip_port or not pairing_code:
+            return False
+        try:
+            res = subprocess.run(
+                ["adb", "pair", pairing_ip_port.strip(), str(pairing_code).strip()],
+                capture_output=True,
+                text=True,
+                timeout=15
+            )
+            return "successfully paired" in res.stdout.lower()
+        except Exception:
+            return False
+
+    def ensure_adb_keyboard(self, apk_path=None):
+        """Ensures ADBKeyboard is installed and activated on the Wi-Fi connected device."""
+        if not self.device_id:
+            return False
+
+        # 1. Check if package is installed
+        installed = self.run_adb(["shell", "pm list packages com.android.adbkeyboard"])
+        if "com.android.adbkeyboard" not in installed:
+            if apk_path and os.path.exists(apk_path):
+                self.run_adb(["install", "-r", "-g", apk_path])
+            else:
+                return False
+
+        # 2. Enable & Set ADBKeyboard IME
+        self.run_adb(["shell", "ime", "enable", "com.android.adbkeyboard/.AdbIME"])
+        self.run_adb(["shell", "ime", "set", "com.android.adbkeyboard/.AdbIME"])
+
+        current_ime = self.run_adb(["shell", "settings get secure default_input_method"]).strip()
+        return "com.android.adbkeyboard" in current_ime
+
     def check_connection(self):
-        """Verifies ADB connection (prioritizing USB) and ensures ADBKeyboard is active."""
-        # 1. First attempt to auto-detect any connected USB device
+        """Verifies Wireless ADB connection and ensures ADBKeyboard is active."""
+        # 1. First check if any Wi-Fi device is already active
         detected_id, conn_type = self.auto_detect_device()
         if detected_id:
             self.device_id = detected_id
             self.connection_type = conn_type
         else:
-            # 2. If no USB device is connected and we have a Wi-Fi target IP:Port, try adb connect
+            # 2. If not active, but target device_id has an IP:Port, attempt to connect
             if self.device_id and ":" in self.device_id:
-                self.run_adb(["connect", self.device_id])
-                time.sleep(1.5)
-                detected_id, conn_type = self.auto_detect_device()
-                if not detected_id:
+                if not self.connect_wifi(self.device_id):
                     return False
             else:
                 return False

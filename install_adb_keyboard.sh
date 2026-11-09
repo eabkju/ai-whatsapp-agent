@@ -16,23 +16,28 @@ if ! command -v adb >/dev/null 2>&1; then
     exit 1
 fi
 
-# 2. Check for connected device (USB prioritized)
-DEVICE_OUT=$(adb devices -l | grep -w "device" || true)
-if [ -z "$DEVICE_OUT" ]; then
-    echo "[!] No ADB device connected. Trying to connect to 127.0.0.1:5555 or USB..."
-    adb connect 127.0.0.1:5555 2>/dev/null || true
+# 2. Check for connected Wi-Fi ADB device
+TARGET_DEVICE="$1"
+if [ -z "$TARGET_DEVICE" ]; then
+    TARGET_DEVICE=$(python3 -c "import json, os; p = os.path.expanduser('~/.config/whatsapp_ai_agent/config.json'); print(json.load(open(p)).get('device_id', ''))" 2>/dev/null || true)
+fi
+
+if [ -n "$TARGET_DEVICE" ] && [[ "$TARGET_DEVICE" == *":"* ]]; then
+    adb connect "$TARGET_DEVICE" >/dev/null 2>&1 || true
     sleep 1
 fi
 
-# Re-check device
-DEVICE=$(adb devices | grep -w "device" | head -n 1 | awk '{print $1}')
+DEVICE=$(adb devices | grep -E ":[0-9]+" | grep -w "device" | head -n 1 | awk '{print $1}')
 if [ -z "$DEVICE" ]; then
-    echo "[✗] No connected Android device found via ADB."
-    echo "    Please connect your phone via USB cable (USB Debugging ON) or Wi-Fi."
-    exit 1
+    echo "[!] Notice: No active Wireless ADB device currently connected."
+    echo "    To connect your phone via Wi-Fi Debugging:"
+    echo "    1. Enable Settings > Developer Options > Wireless Debugging on your phone."
+    echo "    2. Run: adb connect <PHONE_IP:PORT>"
+    echo "    3. Run: check-ai-whatsapp (or setup wizard will prompt for IP:Port)"
+    exit 0
 fi
 
-echo "[✓] Target Device detected: $DEVICE"
+echo "[✓] Target Wi-Fi Device detected: $DEVICE"
 
 # 3. Ensure APK is present (download if missing)
 if [ ! -f "$APK_PATH" ] || [ ! -s "$APK_PATH" ]; then

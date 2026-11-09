@@ -39,13 +39,14 @@ def run_diagnostics():
         print(f"  {YELLOW}[-] Daemon is not currently running.{RESET}")
 
     # 2. ADB Connection
-    adb = ADBClient(device_id=device_id, prefer_usb=settings.get("prefer_usb", True))
-    print(f"\n{BOLD}[2] ADB Connection (Prefer USB: {settings.get('prefer_usb', True)}):{RESET}")
+    adb = ADBClient(device_id=device_id)
+    print(f"\n{BOLD}[2] Wireless ADB Connection (Wi-Fi Debugging):{RESET}")
     if adb.check_connection():
-        print(f"  {GREEN}[✓] Connected via {adb.connection_type} Debugging (Device: {adb.device_id}).{RESET}")
+        print(f"  {GREEN}[✓] Connected via Wireless ADB (Device: {adb.device_id}).{RESET}")
     else:
-        print(f"  {RED}[✗] Failed to connect to any USB or Wi-Fi device ({device_id})!{RESET}")
-        print(f"      {YELLOW}Troubleshooting: Connect via USB cable with USB Debugging enabled, or check Wi-Fi ADB pairing.{RESET}")
+        target_display = device_id if device_id else "No IP:Port set"
+        print(f"  {RED}[✗] Failed to connect to Wireless ADB device ({target_display})!{RESET}")
+        print(f"      {YELLOW}Troubleshooting: Enable Wireless Debugging on your phone and run: adb connect <PHONE_IP:PORT>{RESET}")
         issues_found += 1
 
     guard = DeviceGuard(adb)

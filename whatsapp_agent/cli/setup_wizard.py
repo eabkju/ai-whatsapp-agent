@@ -50,44 +50,92 @@ def run_setup():
     except Exception:
         pass
 
-    device_id = settings.get("device_id", "192.168.0.140:35105")
+    device_id = settings.get("device_id", "").strip()
     adb = ADBClient(device_id=device_id)
 
-    try:
-        adb.run_adb(["shell", "dumpsys", "deviceidle", "whitelist", "+com.termux"])
-        adb.run_adb(["shell", "cmd", "appops", "set", "com.termux", "RUN_IN_BACKGROUND", "allow"])
-        print(f"  {GREEN}[✓] Battery optimization whitelist configured.{RESET}")
-    except Exception:
-        pass
+    # Step 3: Check Wireless ADB and ADBKeyboard
+    print(f"\n{CYAN}[3/6] Verifying Wireless ADB connection (Wi-Fi Debugging)...{RESET}")
+    detected_id, _ = adb.auto_detect_device()
+    connected = False
 
-    # Step 3: Check ADB and ADBKeyboard
-    print(f"{CYAN}[3/6] Verifying ADB connection to device ({device_id})...{RESET}")
-    if not adb.check_connection():
-        print(f"{RED}[!] Error: Could not connect to {device_id}. Ensure Wireless ADB is enabled.{RESET}")
-        custom_device = input(f"{YELLOW}Enter your device IP:Port [Press Enter to keep {device_id}]: {RESET}").strip()
+    if detected_id:
+        print(f"  {GREEN}[✓] Active Wireless ADB device detected: {detected_id}{RESET}")
+        adb.device_id = detected_id
+        settings["device_id"] = detected_id
+        connected = True
+    elif device_id and ":" in device_id:
+        print(f"  [*] Attempting to connect to saved Wi-Fi device ({device_id})...")
+        if adb.connect_wifi(device_id):
+            print(f"  {GREEN}[✓] Successfully connected to {device_id}{RESET}")
+            connected = True
+
+    if not connected:
+        print(f"  {YELLOW}[!] No active Wireless ADB device detected.{RESET}")
+        print(f"      {BOLD}How to enable on your phone:{RESET}")
+        print(f"      1. Go to Settings > Developer Options > Wireless Debugging.")
+        print(f"      2. Turn ON Wireless Debugging and note the IP address and Port.")
+        try:
+            custom_device = input(f"\n{YELLOW}Enter your phone's Wireless Debugging IP:Port (or press Enter to configure later): {RESET}").strip()
+        except (EOFError, KeyboardInterrupt):
+            custom_device = ""
+
         if custom_device:
-            adb.device_id = custom_device
-            settings["device_id"] = custom_device
-            if not adb.check_connection():
-                print(f"{RED}[!] Still failed to connect to {custom_device}. Exiting setup.{RESET}")
-                return False
+            try:
+                pair_needed = input(f"{YELLOW}Do you need to pair first with a 6-digit code? [y/N]: {RESET}").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                pair_needed = "n"
 
-    print(f"  {GREEN}[✓] Device connected and ADBKeyboard active!{RESET}")
+            if pair_needed in ("y", "yes"):
+                try:
+                    p_target = input(f"{YELLOW}Enter Pairing IP:Port (from 'Pair device with pairing code'): {RESET}").strip()
+                    p_code = input(f"{YELLOW}Enter 6-digit pairing code: {RESET}").strip()
+                    if p_target and p_code:
+                        print(f"  [*] Pairing with {p_target}...")
+                        adb.pair_wifi(p_target, p_code)
+                except (EOFError, KeyboardInterrupt):
+                    pass
+
+            print(f"  [*] Connecting to {custom_device} via Wi-Fi...")
+            if adb.connect_wifi(custom_device):
+                print(f"  {GREEN}[✓] Successfully connected to {custom_device}!{RESET}")
+                settings["device_id"] = custom_device
+                connected = True
+            else:
+                print(f"  {YELLOW}[!] Could not connect to {custom_device} right now.{RESET}")
+                print(f"      You can connect later anytime with: adb connect {custom_device}")
+        else:
+            print(f"  {YELLOW}[-] Wi-Fi connection skipped for now.{RESET}")
+
+    # Ensure ADBKeyboard is installed and active if connected
+    if connected:
+        apk_candidates = [
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ADBKeyboard.apk")),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../ADBKeyboard.apk")),
+            os.path.expanduser("~/ADBKeyboard.apk")
+        ]
+        found_apk = next((p for p in apk_candidates if os.path.exists(p)), None)
+        adb.ensure_adb_keyboard(apk_path=found_apk)
+        print(f"  {GREEN}[✓] Wireless ADB connected and ADBKeyboard verified!{RESET}")
+    else:
+        print(f"  {YELLOW}[*] You can complete connection and verify anytime with 'check-ai-whatsapp'.{RESET}")
 
     # Step 4: Verify WhatsApp package & UI frames
-    print(f"{CYAN}[4/6] Inspecting WhatsApp app details & message reply frames...{RESET}")
-    wa_check = adb.run_adb(["shell", "pm path com.whatsapp"]).strip()
-    if not wa_check:
-        print(f"{YELLOW}[!] WhatsApp is not installed under package name com.whatsapp.{RESET}")
-    else:
-        print(f"  {GREEN}[✓] WhatsApp detected: {wa_check}{RESET}")
+    print(f"\n{CYAN}[4/6] Inspecting WhatsApp app details & message reply frames...{RESET}")
+    if connected:
+        wa_check = adb.run_adb(["shell", "pm path com.whatsapp"]).strip()
+        if not wa_check:
+            print(f"{YELLOW}[!] WhatsApp is not installed under package name com.whatsapp.{RESET}")
+        else:
+            print(f"  {GREEN}[✓] WhatsApp detected: {wa_check}{RESET}")
 
-    # Test UI dump
-    ui_dump = adb.dump_ui()
-    if ui_dump and "<hierarchy" in ui_dump:
-        print(f"  {GREEN}[✓] Screen hierarchy & UI frames accessible.{RESET}")
+        # Test UI dump
+        ui_dump = adb.dump_ui()
+        if ui_dump and "<hierarchy" in ui_dump:
+            print(f"  {GREEN}[✓] Screen hierarchy & UI frames accessible.{RESET}")
+        else:
+            print(f"{YELLOW}[!] Notice: Could not dump UI immediately. Make sure screen is unlocked.{RESET}")
     else:
-        print(f"{YELLOW}[!] Notice: Could not dump UI immediately. Make sure screen is unlocked.{RESET}")
+        print(f"  {YELLOW}[-] Skipped until Wireless ADB is connected.{RESET}")
 
     # Step 5: Show Success Notification to user
     print(f"\n{CYAN}[5/6] Sending success notification...{RESET}")
@@ -99,14 +147,20 @@ def run_setup():
     current_key = settings.get("gemini_api_key", "")
     key_masked = f"{current_key[:6]}...{current_key[-4:]}" if len(current_key) > 10 else "None"
     print(f"Current Gemini API Key: {BOLD}{key_masked}{RESET}")
-    new_key = input(f"Enter Gemini API Key (or press Enter to keep current): ").strip()
-    if new_key:
-        settings["gemini_api_key"] = new_key
+    try:
+        new_key = input(f"Enter Gemini API Key (or press Enter to keep current): ").strip()
+        if new_key:
+            settings["gemini_api_key"] = new_key
+    except (EOFError, KeyboardInterrupt):
+        pass
 
     current_name = settings.get("agent_name", "Personal AI Assistant")
-    new_name = input(f"Enter AI Agent Name/Persona (default: '{current_name}'): ").strip()
-    if new_name:
-        settings["agent_name"] = new_name
+    try:
+        new_name = input(f"Enter AI Agent Name/Persona (default: '{current_name}'): ").strip()
+        if new_name:
+            settings["agent_name"] = new_name
+    except (EOFError, KeyboardInterrupt):
+        pass
 
     save_settings(settings)
     print(f"\n{BOLD}{GREEN}[✓] Setup completed successfully! Settings securely saved to {BOLD}~/.config/whatsapp_ai_agent/config.json (chmod 600){RESET}\n")

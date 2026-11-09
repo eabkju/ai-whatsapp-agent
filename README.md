@@ -14,20 +14,21 @@ Intelligent, multilingual auto-reply agent for WhatsApp powered by **Google Gemi
 * **Multimodal Intelligence**: Analyzes incoming photos (`gemini-2.0-flash` Vision) and listens to voice notes (`gemini-2.0-flash` Audio) to send contextual text replies.
 * **Privacy & Safety Guardrails**: Zero cross-contact data leakage, natural Islamic etiquette (*Assalamu Alaikum*, *Alhamdulillah*, *InshaALLAH*, *Allah Hafez*), and strict deterministic medical advice disclaimer.
 * **Hardware Resilience**: Automatically pauses during incoming or active phone calls; suspends while screen is locked and resumes cleanly when unlocked.
-* **USB Debugging Priority**: Automatically detects and prioritizes USB-OTG/USB cable over Wi-Fi for zero latency and rock-solid stability.
+* **Wireless ADB (Wi-Fi Only)**: Operates seamlessly over Android Wireless Debugging (Wi-Fi) without requiring USB cables.
 
 ---
 
 ## 📱 Prerequisites on the Target Device
 
-### 1. Enable Android Developer Options & USB Debugging
+### 1. Enable Android Developer Options & Wireless Debugging
 1. Go to **Settings > About Phone** and tap **Build Number** 7 times to enable Developer Options.
 2. Go to **Settings > Developer Options**:
-   * Enable **USB Debugging** (or **Wireless Debugging** if connecting without cable).
+   * Enable **Wireless Debugging** (connect your phone and host to the same Wi-Fi).
+   * Note your **IP address & Port** (e.g. `192.168.1.50:41235`).
    * Enable **Disable Permission Monitoring** (if available on your device).
 
 ### 2. Install ADBKeyboard (Required for Unicode & Bengali/Hindi text)
-1. Download & install the free open-source APK:
+1. Download & install the included `ADBKeyboard.apk` (or from GitHub):
    👉 [ADBKeyboard Release on GitHub](https://github.com/senzhk/ADBKeyBoard/releases)
 2. Go to **Settings > System > Languages & Input > On-screen Keyboard** and enable **ADB Keyboard**.
 
@@ -53,7 +54,7 @@ Intelligent, multilingual auto-reply agent for WhatsApp powered by **Google Gemi
 3. The installer will:
    * Install all 7 CLI commands in `$PREFIX/bin` (Termux) and `~/.local/bin`.
    * Configure background wake-locks and battery optimization exemptions.
-   * Verify your ADB connection (USB or Wi-Fi).
+   * Verify your Wireless ADB connection (`<PHONE_IP:PORT>`).
    * Prompt you for your **Google Gemini API Key** and **Agent Name** (securely saved with `chmod 600`).
 
 ---

@@ -23,12 +23,12 @@ elif [ -d "/storage/emulated/0" ]; then
     echo "Please grant Storage Permission on your phone screen, then re-run this script."
 fi
 
-# Scenario 2: Connected via ADB (USB or Wi-Fi)
+# Scenario 2: Connected via Wireless ADB (Wi-Fi Debugging)
 if command -v adb >/dev/null 2>&1; then
-    echo "[*] Checking for connected ADB device..."
-    DEVICE=$(adb devices | grep -w "device" | head -n 1 | awk '{print $1}')
+    echo "[*] Checking for connected Wireless ADB device..."
+    DEVICE=$(adb devices | grep -E ":[0-9]+" | grep -w "device" | head -n 1 | awk '{print $1}')
     if [ -n "$DEVICE" ]; then
-        echo "[✓] Connected device found: $DEVICE"
+        echo "[✓] Connected Wi-Fi device found: $DEVICE"
         echo "[*] Pushing files to phone internal storage: $TARGET_DIR..."
         adb -s "$DEVICE" shell "mkdir -p '$TARGET_DIR'"
         adb -s "$DEVICE" push "$SOURCE_DIR/." "$TARGET_DIR/"
@@ -39,7 +39,7 @@ if command -v adb >/dev/null 2>&1; then
     fi
 fi
 
-echo "[!] Notice: Local root filesystem '/' has read-only protection in this environment."
+echo "[!] Notice: No connected Wi-Fi ADB device found."
 echo "    Files are staged and ready in: $SOURCE_DIR"
-echo "    To push to phone storage, connect your device via USB (USB Debugging ON) and run:"
-echo "    bash /home/droid/push_to_phone_storage.sh"
+echo "    Enable Wireless Debugging on your phone, run 'adb connect <PHONE_IP:PORT>', and re-run:"
+echo "    bash ./push_to_phone_storage.sh"

@@ -40,7 +40,7 @@ RESET = "\033[0m"
 class WhatsAppAIAgent:
     def __init__(self, settings=None):
         self.settings = settings or load_settings()
-        self.device_id = self.settings.get("device_id", "192.168.0.140:35105")
+        self.device_id = self.settings.get("device_id", "")
         self.gemini_key = self.settings.get("gemini_api_key", os.environ.get("GEMINI_API_KEY", ""))
         self.agent_name = self.settings.get("agent_name", "Personal AI Assistant")
         self.cooldown_seconds = self.settings.get("cooldown_seconds", 8)
@@ -53,7 +53,7 @@ class WhatsAppAIAgent:
         self.ui_coords = self.settings.get("ui_coords", {})
 
         # Subsystems
-        self.adb = ADBClient(device_id=self.device_id, prefer_usb=self.settings.get("prefer_usb", True))
+        self.adb = ADBClient(device_id=self.device_id)
         self.guard = DeviceGuard(self.adb)
         self.keyboard_mgr = KeyboardManager(self.adb, idle_timeout=self.user_idle_timeout)
         self.bg_worker = BackgroundWorker(self.adb, notify_interval=self.bg_notify_interval)

@@ -197,8 +197,8 @@ class TestAllFeatures(unittest.TestCase):
         for cmd in expected_cmds:
             self.assertIn(cmd, COMMAND_GUIDE)
 
-    def test_8_usb_debugging_priority(self):
-        """Feature 8: Auto-detects USB debugging and prioritizes it over Wi-Fi."""
+    def test_8_wifi_debugging_only(self):
+        """Feature 8: Strictly connects via Wireless ADB (Wi-Fi), ignoring USB devices."""
         from unittest.mock import patch
         from whatsapp_agent.core.adb_client import ADBClient
 
@@ -213,21 +213,27 @@ class TestAllFeatures(unittest.TestCase):
             mock_run.return_value.stdout = mock_output
             mock_run.return_value.returncode = 0
 
-            # 1. When prefer_usb is True, MUST pick USB device R58M10ABCDE
-            client = ADBClient(device_id="192.168.0.140:35105", prefer_usb=True)
+            # 1. Even when a USB device is attached, MUST ignore USB and select the Wi-Fi device
+            client = ADBClient(device_id="192.168.0.140:35105")
             serial, conn_type = client.auto_detect_device()
-            self.assertEqual(conn_type, "USB")
-            self.assertEqual(serial, "R58M10ABCDE")
-
-            # 2. When only Wi-Fi device exists, falls back to Wi-Fi
-            mock_run.return_value.stdout = (
-                "List of devices attached\n"
-                "192.168.0.140:35105    device product:a52sxq\n"
-            )
-            client_wifi_only = ADBClient(device_id="192.168.0.140:35105", prefer_usb=True)
-            serial, conn_type = client_wifi_only.auto_detect_device()
             self.assertEqual(conn_type, "Wi-Fi")
             self.assertEqual(serial, "192.168.0.140:35105")
+
+            # 2. When only USB device is attached, refuses to connect and returns None
+            mock_run.return_value.stdout = (
+                "List of devices attached\n"
+                "R58M10ABCDE            device usb:1-1 product:a52sxq\n"
+            )
+            client_usb_only = ADBClient()
+            serial, conn_type = client_usb_only.auto_detect_device()
+            self.assertIsNone(conn_type)
+            self.assertIsNone(serial)
+
+            # 3. Verify adb connect command does NOT prepend -s
+            mock_run.reset_mock()
+            mock_run.return_value.stdout = "connected to 192.168.1.100:41235"
+            client.run_adb(["connect", "192.168.1.100:41235"])
+            mock_run.assert_called_with(["adb", "connect", "192.168.1.100:41235"], capture_output=True, text=True, errors="replace")
 
 if __name__ == "__main__":
     unittest.main()
