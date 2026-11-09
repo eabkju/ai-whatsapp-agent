@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.tar.gz
+*.zip
+
+# Agent runtime files & state
+*.pid
+*.state
+*.log
+/tmp/whatsapp_ai_agent.*
+
+# Configuration & Secrets
+config.json
+.config/
+
+# Environment & IDE
+.env
+.venv
+env/
+venv/
+.idea/
+.vscode/
