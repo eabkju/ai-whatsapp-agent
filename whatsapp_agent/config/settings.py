@@ -17,7 +17,7 @@ DEFAULT_SETTINGS = {
     "gemini_api_key": os.environ.get("GEMINI_API_KEY", ""),
     "agent_name": "Personal AI Assistant",
     "cooldown_seconds": 8,
-    "user_idle_timeout": 15,
+    "user_idle_timeout": 25,
     "bg_notify_interval": 50,
     "poll_interval": 0.8,
     "idle_poll_interval": 1.5,
@@ -62,6 +62,9 @@ def load_settings():
                 cur = merged.get(key, "")
                 if not cur or (cur.startswith("/tmp") and not os.access("/tmp", os.W_OK)):
                     merged[key] = os.path.join(tmp_dir, filename)
+
+            if merged.get("user_idle_timeout") in (15, None):
+                merged["user_idle_timeout"] = 25
 
             # Auto-migrate deprecated models
             models = merged.get("models", {})

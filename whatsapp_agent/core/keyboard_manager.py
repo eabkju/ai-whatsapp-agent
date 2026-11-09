@@ -1,64 +1,162 @@
 import time
+import re
 from contextlib import contextmanager
 
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+RESET = "\033[0m"
+
 class KeyboardManager:
-    def __init__(self, adb_client, idle_timeout=15):
+    def __init__(self, adb_client, idle_timeout=25):
         self.adb = adb_client
         self.idle_timeout = idle_timeout
         self.user_ime = None
         self.last_user_interaction = 0
+        self.last_agent_action = 0
         self.adb_ime = "com.android.adbkeyboard/.AdbIME"
+        self.is_paused_for_user = False
+        self.current_ime = None
         self.detect_user_ime()
 
     def detect_user_ime(self):
-        """Discovers and caches the user's preferred keyboard."""
+        """Discovers and caches the user's preferred personal keyboard."""
         current_ime = self.adb.run_adb(["shell", "settings get secure default_input_method"]).strip()
         if current_ime and "com.android.adbkeyboard" not in current_ime:
             self.user_ime = current_ime
         elif not self.user_ime:
-            # Fallback to standard Gboard or Android Latin IME if not detected yet
+            # Check installed IMEs
+            out = self.adb.run_adb(["shell", "ime list -s"])
+            if out:
+                for line in out.strip().splitlines():
+                    ime = line.strip()
+                    if ime and "com.android.adbkeyboard" not in ime:
+                        self.user_ime = ime
+                        break
+        if not self.user_ime:
             self.user_ime = "com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME"
         return self.user_ime
 
     def switch_to_adb_keyboard(self):
         """Enables and switches to ADBKeyboard for typing."""
-        self.adb.run_adb(["shell", "ime", "enable", self.adb_ime])
-        self.adb.run_adb(["shell", "ime", "set", self.adb_ime])
+        if self.current_ime != self.adb_ime:
+            self.adb.run_adb(["shell", "ime", "enable", self.adb_ime])
+            self.adb.run_adb(["shell", "ime", "set", self.adb_ime])
+            self.current_ime = self.adb_ime
 
     def restore_user_keyboard(self):
         """Restores the user's default personal keyboard."""
-        if self.user_ime:
+        if not self.user_ime:
+            self.detect_user_ime()
+        if self.user_ime and self.current_ime != self.user_ime:
             self.adb.run_adb(["shell", "ime", "set", self.user_ime])
+            self.current_ime = self.user_ime
+
+    def record_agent_action(self):
+        """Records timestamp when agent executes an automated tap, swipe, or typing."""
+        self.last_agent_action = time.time()
 
     def record_user_interaction(self):
         """Notifies manager that user touched the screen or focused an input."""
         self.last_user_interaction = time.time()
+        self.is_paused_for_user = True
         self.restore_user_keyboard()
 
     def is_user_active(self):
-        """Returns True if user interacted within the idle timeout window (10-20s)."""
+        """Returns True if user interacted within the idle timeout window (25s)."""
         if self.last_user_interaction == 0:
             return False
         return (time.time() - self.last_user_interaction) < self.idle_timeout
 
+    def check_user_interference(self):
+        """
+        Polls window focus, power user activity, and soft keyboard visibility.
+        Detects if the human user is interacting with the screen.
+        """
+        cmd = "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'; dumpsys power | grep -E 'lastUserActivityTime=.*ms ago'; dumpsys input_method | grep -E 'mInputShown'"
+        out = self.adb.run_adb(["shell", cmd])
+        if not out:
+            return False
+
+        lines = out.strip().splitlines()
+        focus_lines = [l for l in lines if "mCurrentFocus" in l or "mFocusedApp" in l]
+        focus_text = " ".join(focus_lines)
+
+        # 1. Non-WhatsApp app is in foreground focus
+        # If user opened Termux, Home launcher, Settings, Browser, etc.
+        if focus_text and "com.whatsapp" not in focus_text:
+            return True
+
+        # 2. Touch screen activity
+        activity_match = re.search(r'lastUserActivityTime=\d+\s+\((\d+)\s*ms ago\)', out)
+        if activity_match:
+            ms_ago = int(activity_match.group(1))
+            # Activity happened within last 2.5 seconds and was not agent's own action
+            if ms_ago < 2500 and (time.time() - self.last_agent_action > 2.5):
+                return True
+
+        # 3. Soft keyboard is actively shown for the user
+        if "mInputShown=true" in out and (time.time() - self.last_agent_action > 2.5):
+            return True
+
+        return False
+
+    def handle_user_state(self):
+        """
+        Manages keyboard switching and pause/resume based on user interference:
+        - When user interferes with screen:
+            1. Switch current keyboard from ADBKeyboard to phone's default keyboard.
+            2. Pause agent and update interference timestamp.
+        - When no user interference is detected for 25 seconds:
+            1. Switch keyboard to ADBKeyboard.
+            2. Resume agent doing its job from pause.
+        Returns: bool (True if agent should remain paused, False if agent can proceed)
+        """
+        now = time.time()
+        interfering = self.check_user_interference()
+
+        if interfering:
+            self.last_user_interaction = now
+            if not self.is_paused_for_user:
+                self.is_paused_for_user = True
+                self.restore_user_keyboard()
+                print(f"\n{YELLOW}[!] User screen interference detected!{RESET}")
+                print(f"    {CYAN}Switched keyboard to default ({self.user_ime}). Agent PAUSED.{RESET}")
+            return True
+
+        # If currently paused waiting for 25s idle
+        if self.is_paused_for_user:
+            elapsed = now - self.last_user_interaction
+            if elapsed < self.idle_timeout:
+                return True
+            else:
+                # 25 seconds of silence have elapsed!
+                self.is_paused_for_user = False
+                self.last_user_interaction = 0
+                self.switch_to_adb_keyboard()
+                print(f"\n{GREEN}[✓] No user interference for {int(self.idle_timeout)}s!{RESET}")
+                print(f"    {CYAN}Switched keyboard to ADBKeyboard. Agent RESUMED.{RESET}\n")
+                return False
+
+        # If active and no interference, ensure ADBKeyboard is current
+        if self.current_ime != self.adb_ime:
+            self.switch_to_adb_keyboard()
+
+        return False
+
     def check_screen_interaction(self):
-        """
-        Polls input touch events or window focus.
-        If user interaction is detected, yields keyboard back to user.
-        """
-        out = self.adb.run_adb(["shell", "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'"])
-        if out and "com.whatsapp" not in out:
-            self.restore_user_keyboard()
+        """Backwards compatibility helper."""
+        return self.handle_user_state()
 
     @contextmanager
     def typing_session(self):
         """
-        Context manager that activates ADBKeyboard ONLY for the brief
-        duration of text injection, then immediately restores the user's keyboard.
+        Ensures ADBKeyboard is active during typing, and records agent action.
         """
+        self.record_agent_action()
+        self.switch_to_adb_keyboard()
+        time.sleep(0.05)
         try:
-            self.switch_to_adb_keyboard()
-            time.sleep(0.1)
             yield
         finally:
-            self.restore_user_keyboard()
+            self.record_agent_action()

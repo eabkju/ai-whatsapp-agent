@@ -26,6 +26,8 @@ class MockADB:
             if cmd_args[2] == "set":
                 self.current_ime = cmd_args[3]
                 return f"Input method {cmd_args[3]} selected"
+            elif cmd_args[2] == "enable":
+                return f"Input method {cmd_args[3]} enabled"
         elif cmd_args == ["shell", "dumpsys activity activities | grep -E 'topResumedActivity'"]:
             return "topResumedActivity=ActivityRecord{com.whatsapp/.home.ui.HomeActivity}"
         return ""
@@ -103,29 +105,37 @@ class TestAllFeatures(unittest.TestCase):
             save_settings(original_settings)
 
     def test_3_smart_keyboard_switching_and_user_interference(self):
-        """Feature 3: ADBKeyboard for typing -> immediate user IME restoration with 15s reset."""
+        """Feature 3: ADBKeyboard active -> user interference switches to default IME -> 25s idle restores ADBKeyboard."""
         mock_adb = MockADB()
-        km = KeyboardManager(mock_adb, idle_timeout=15)
+        km = KeyboardManager(mock_adb, idle_timeout=25)
         
-        # User default keyboard should be preserved
+        # User default keyboard should be discovered
         self.assertEqual(km.user_ime, "com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME")
 
-        # Test typing session context manager
-        with km.typing_session():
-            # Inside typing session, active keyboard is ADBKeyboard
-            self.assertEqual(mock_adb.current_ime, "com.android.adbkeyboard/.AdbIME")
+        # 1. Agent starts and ensures ADBKeyboard is active
+        km.switch_to_adb_keyboard()
+        self.assertEqual(mock_adb.current_ime, "com.android.adbkeyboard/.AdbIME")
 
-        # Immediately after typing session exits, user keyboard MUST be restored!
+        # 2. User touches screen or interferes
+        km.record_user_interaction()
+        # Keyboard MUST immediately switch to user's default phone keyboard!
+        self.assertEqual(mock_adb.current_ime, "com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME")
+        self.assertTrue(km.is_user_active())
+        self.assertTrue(km.handle_user_state())  # Agent must be paused
+
+        # 3. User still active after 10 seconds (under 25s threshold)
+        km.last_user_interaction = time.time() - 10
+        self.assertTrue(km.is_user_active())
+        self.assertTrue(km.handle_user_state())  # Still paused
         self.assertEqual(mock_adb.current_ime, "com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME")
 
-        # Test user interference detection
+        # 4. User interference not found for 25 seconds
+        km.last_user_interaction = time.time() - 26  # 26s since last interference
         self.assertFalse(km.is_user_active())
-        km.record_user_interaction()
-        self.assertTrue(km.is_user_active())
-
-        # Test idle reset after timeout
-        km.last_user_interaction = time.time() - 16  # 16 seconds ago
-        self.assertFalse(km.is_user_active())
+        paused = km.handle_user_state()
+        self.assertFalse(paused)  # Agent is resumed from pause!
+        # Keyboard MUST be switched back to ADBKeyboard!
+        self.assertEqual(mock_adb.current_ime, "com.android.adbkeyboard/.AdbIME")
 
     def test_4_background_worker_and_50s_ticker(self):
         """Feature 4: Silent background execution & 50-second notification ticker."""

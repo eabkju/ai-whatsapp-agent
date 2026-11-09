@@ -75,6 +75,7 @@ class WhatsAppAIAgent:
 
     def return_to_home(self):
         """Guarantees returning to WhatsApp HomeActivity cleanly without popping up over other apps."""
+        self.keyboard_mgr.record_agent_action()
         # If WhatsApp is minimized and user is elsewhere, do NOT force bring to front
         if not self.bg_worker.is_whatsapp_foreground() and self.bg_worker.is_minimized_mode:
             return True
@@ -270,6 +271,7 @@ class WhatsAppAIAgent:
 
     def process_contact_job(self, job):
         """Processes an individual contact job in the FIFO queue."""
+        self.keyboard_mgr.record_agent_action()
         name = job.name
         print(f"\n{CYAN}[*] Processing chat from queue: {BOLD}{name}{RESET}")
 
@@ -362,9 +364,9 @@ class WhatsAppAIAgent:
         print(f"Safeguards:       Medical Disclaimer + Islamic Etiquette + Call/Lock Pause")
         print(f"{CYAN}Monitoring WhatsApp for incoming messages... (PID: {os.getpid()}){RESET}\n")
 
-        # Keep screen awake and restore user keyboard on startup
+        # Keep screen awake and set initial keyboard to ADBKeyboard
         self.guard.prevent_screen_sleep()
-        self.keyboard_mgr.restore_user_keyboard()
+        self.keyboard_mgr.switch_to_adb_keyboard()
         self.return_to_home()
 
         while True:
@@ -377,9 +379,10 @@ class WhatsAppAIAgent:
                     time.sleep(1.0)
                     continue
 
-                # 3. Check user interference: if user is typing/interacting, yield keyboard & pause
-                self.keyboard_mgr.check_screen_interaction()
-                if self.keyboard_mgr.is_user_active():
+                # 3. Check user interference:
+                # If human user interferes with screen, switches keyboard to default
+                # and pauses agent until no interference for 25s, then switches to ADBKeyboard and resumes.
+                if self.keyboard_mgr.handle_user_state():
                     time.sleep(1.0)
                     continue
 

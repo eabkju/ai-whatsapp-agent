@@ -8,8 +8,8 @@ Intelligent, multilingual auto-reply agent for WhatsApp powered by **Google Gemi
 
 * **Sub-2/3s Response & Zero-Delay Sweep**: Instant detection of unread messages with immediate follow-up scans.
 * **8-Second Dynamic Cooldown & FIFO Fairness**: Prevents duplicate spamming while answering contacts strictly in order of arrival.
-* **Smart Keyboard Switching**: Uses `ADBKeyboard` strictly for 1–2 seconds to send Unicode text, then immediately restores your personal keyboard (Gboard, Samsung Keyboard, etc.).
-* **User Interference & 15s Idle Reset**: Yields instantly when you touch the screen or type; automatically resumes after 15 seconds of inactivity.
+* **Dynamic Keyboard & Screen Interference Management**: The agent operates with `ADBKeyboard` active. When human screen interference is detected, it instantly switches the keyboard to your phone's default keyboard (Gboard, Samsung Keyboard, etc.) and pauses the agent.
+* **25-Second Inactivity Auto-Resume**: When screen interference is absent for 25 seconds, the agent automatically switches back to `ADBKeyboard` and resumes its work from pause.
 * **Non-Intrusive Background Operation**: Never forces WhatsApp to pop up over active apps (e.g. YouTube, Browser) while replying; provides an ongoing 50-second status notification.
 * **Multimodal Intelligence**: Analyzes incoming photos (`gemini-3.5-flash` Vision) and listens to voice notes (`gemini-3.5-flash` Audio) to send contextual text replies.
 * **Privacy & Safety Guardrails**: Zero cross-contact data leakage, natural Islamic etiquette (*Assalamu Alaikum*, *Alhamdulillah*, *InshaALLAH*, *Allah Hafez*), and strict deterministic medical advice disclaimer.
