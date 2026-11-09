@@ -1,5 +1,7 @@
 import unittest
 import time
+import os
+import tempfile
 from whatsapp_agent.core.queue_manager import QueueManager
 from whatsapp_agent.core.safety_guard import SafetyGuard, MEDICAL_DISCLAIMER_EXACT
 from whatsapp_agent.core.model_router import ModelRouter
@@ -107,21 +109,24 @@ class TestWhatsAppAIAgent(unittest.TestCase):
         # Audio priority
         c_type, model = router.route(has_audio=True, has_image=True)
         self.assertEqual(c_type, "audio")
-        self.assertEqual(model, "gemini-2.0-flash")
+        self.assertEqual(model, "gemini-3.5-flash")
 
         # Vision priority
         c_type, model = router.route(has_audio=False, has_image=True)
         self.assertEqual(c_type, "vision")
-        self.assertEqual(model, "gemini-2.0-flash")
+        self.assertEqual(model, "gemini-3.5-flash")
 
         # Text default
         c_type, model = router.route(has_audio=False, has_image=False)
         self.assertEqual(c_type, "text")
-        self.assertEqual(model, "gemini-2.5-flash")
+        self.assertEqual(model, "gemini-3.5-flash")
 
     def test_service_controller_states(self):
         """Tests Req 11b: Service states and pause/resume logic."""
-        ctrl = ServiceController(pid_file="/tmp/test_agent.pid", state_file="/tmp/test_agent.state")
+        tmp_dir = "/tmp" if os.access("/tmp", os.W_OK) else tempfile.gettempdir()
+        pid_file = os.path.join(tmp_dir, "test_agent.pid")
+        state_file = os.path.join(tmp_dir, "test_agent.state")
+        ctrl = ServiceController(pid_file=pid_file, state_file=state_file)
         ctrl.set_state("RUNNING")
         self.assertEqual(ctrl.get_state(), "RUNNING")
         

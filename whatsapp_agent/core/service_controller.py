@@ -2,11 +2,18 @@ import os
 import signal
 import sys
 import json
+import tempfile
+
+def _get_default_temp_dir():
+    if os.access("/tmp", os.W_OK):
+        return "/tmp"
+    return tempfile.gettempdir()
 
 class ServiceController:
-    def __init__(self, pid_file="/tmp/whatsapp_ai_agent.pid", state_file="/tmp/whatsapp_ai_agent.state"):
-        self.pid_file = pid_file
-        self.state_file = state_file
+    def __init__(self, pid_file=None, state_file=None):
+        tmp_dir = _get_default_temp_dir()
+        self.pid_file = pid_file or os.path.join(tmp_dir, "whatsapp_ai_agent.pid")
+        self.state_file = state_file or os.path.join(tmp_dir, "whatsapp_ai_agent.state")
         self.paused = False
 
     def write_pid(self):
@@ -24,8 +31,10 @@ class ServiceController:
         self.set_state("STOPPED")
 
     @classmethod
-    def get_running_pid(cls, pid_file="/tmp/whatsapp_ai_agent.pid"):
+    def get_running_pid(cls, pid_file=None):
         """Checks if daemon PID is active."""
+        if not pid_file:
+            pid_file = os.path.join(_get_default_temp_dir(), "whatsapp_ai_agent.pid")
         if not os.path.exists(pid_file):
             return None
         try:

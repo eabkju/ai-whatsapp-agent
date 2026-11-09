@@ -81,7 +81,7 @@ class AIService:
         }
 
         # 4. Execute API Request with fallback models
-        models_to_try = [model_name, "gemini-2.0-flash", "gemini-1.5-flash"]
+        models_to_try = [model_name, "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.8-flash"]
         # Deduplicate while preserving order
         unique_models = []
         for m in models_to_try:

@@ -66,8 +66,8 @@ class WhatsAppAIAgent:
             model_config=self.settings.get("models")
         )
         self.controller = ServiceController(
-            pid_file=self.settings.get("pid_file", "/tmp/whatsapp_ai_agent.pid"),
-            state_file=self.settings.get("state_file", "/tmp/whatsapp_ai_agent.state")
+            pid_file=self.settings.get("pid_file"),
+            state_file=self.settings.get("state_file")
         )
 
     def check_connection(self):

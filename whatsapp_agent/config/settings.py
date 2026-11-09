@@ -1,9 +1,16 @@
 import os
 import json
+import tempfile
 from pathlib import Path
 
 DEFAULT_CONFIG_DIR = Path.home() / ".config" / "whatsapp_ai_agent"
 CONFIG_FILE_PATH = DEFAULT_CONFIG_DIR / "config.json"
+
+def get_writable_temp_dir():
+    """Returns /tmp if writable, otherwise falls back to system/Termux temp directory."""
+    if os.access("/tmp", os.W_OK):
+        return "/tmp"
+    return tempfile.gettempdir()
 
 DEFAULT_SETTINGS = {
     "device_id": "",
@@ -17,9 +24,9 @@ DEFAULT_SETTINGS = {
     "ignore_groups": True,
     "auto_send": True,
     "models": {
-        "text": "gemini-2.5-flash",
-        "vision": "gemini-2.0-flash",
-        "audio": "gemini-2.0-flash"
+        "text": "gemini-3.5-flash",
+        "vision": "gemini-3.5-flash",
+        "audio": "gemini-3.5-flash"
     },
     "ui_coords": {
         "back_button": [66, 176],
@@ -30,8 +37,8 @@ DEFAULT_SETTINGS = {
         "/sdcard/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Voice Notes/",
         "/sdcard/WhatsApp/Media/WhatsApp Voice Notes/"
     ],
-    "pid_file": "/tmp/whatsapp_ai_agent.pid",
-    "state_file": "/tmp/whatsapp_ai_agent.state"
+    "pid_file": os.path.join(get_writable_temp_dir(), "whatsapp_ai_agent.pid"),
+    "state_file": os.path.join(get_writable_temp_dir(), "whatsapp_ai_agent.state")
 }
 
 def load_settings():
@@ -48,6 +55,23 @@ def load_settings():
             user_settings = json.load(f)
             merged = DEFAULT_SETTINGS.copy()
             merged.update(user_settings)
+            
+            # Ensure pid_file and state_file are in a writable temp directory
+            tmp_dir = get_writable_temp_dir()
+            for key, filename in [("pid_file", "whatsapp_ai_agent.pid"), ("state_file", "whatsapp_ai_agent.state")]:
+                cur = merged.get(key, "")
+                if not cur or (cur.startswith("/tmp") and not os.access("/tmp", os.W_OK)):
+                    merged[key] = os.path.join(tmp_dir, filename)
+
+            # Auto-migrate deprecated models
+            models = merged.get("models", {})
+            if isinstance(models, dict):
+                deprecated = ("gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash")
+                for m_type in ("text", "vision", "audio"):
+                    if models.get(m_type) in deprecated:
+                        models[m_type] = "gemini-3.5-flash"
+                merged["models"] = models
+
             return merged
     except Exception as e:
         print(f"[!] Warning: Failed to read {CONFIG_FILE_PATH} ({e}). Using defaults.")

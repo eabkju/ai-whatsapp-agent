@@ -78,25 +78,29 @@ class TestAllFeatures(unittest.TestCase):
 
     def test_2_secure_persistent_key_storage_and_logout(self):
         """Feature 2: Persistent key storage (chmod 600) and wipe on logout."""
-        test_settings = load_settings()
-        test_settings["gemini_api_key"] = "TEST_API_KEY_SECURE_12345"
-        save_settings(test_settings)
+        original_settings = load_settings()
+        try:
+            test_settings = original_settings.copy()
+            test_settings["gemini_api_key"] = "TEST_API_KEY_SECURE_12345"
+            save_settings(test_settings)
 
-        # Check permissions
-        if os.path.exists(CONFIG_FILE_PATH):
-            mode = oct(os.stat(CONFIG_FILE_PATH).st_mode & 0o777)
-            self.assertEqual(mode, "0o600", "Config file must have 600 permissions")
+            # Check permissions
+            if os.path.exists(CONFIG_FILE_PATH):
+                mode = oct(os.stat(CONFIG_FILE_PATH).st_mode & 0o777)
+                self.assertEqual(mode, "0o600", "Config file must have 600 permissions")
 
-        # Verify key persistence
-        reloaded = load_settings()
-        self.assertEqual(reloaded["gemini_api_key"], "TEST_API_KEY_SECURE_12345")
+            # Verify key persistence
+            reloaded = load_settings()
+            self.assertEqual(reloaded["gemini_api_key"], "TEST_API_KEY_SECURE_12345")
 
-        # Simulate logout-ai-whatsapp
-        reloaded["gemini_api_key"] = ""
-        save_settings(reloaded)
+            # Simulate logout-ai-whatsapp
+            reloaded["gemini_api_key"] = ""
+            save_settings(reloaded)
 
-        logged_out = load_settings()
-        self.assertEqual(logged_out["gemini_api_key"], "")
+            logged_out = load_settings()
+            self.assertEqual(logged_out["gemini_api_key"], "")
+        finally:
+            save_settings(original_settings)
 
     def test_3_smart_keyboard_switching_and_user_interference(self):
         """Feature 3: ADBKeyboard for typing -> immediate user IME restoration with 15s reset."""
@@ -171,17 +175,17 @@ class TestAllFeatures(unittest.TestCase):
         # Audio / Voice note
         c_type, model = router.route(has_audio=True)
         self.assertEqual(c_type, "audio")
-        self.assertEqual(model, "gemini-2.0-flash")
+        self.assertEqual(model, "gemini-3.5-flash")
 
         # Vision / Image
         c_type, model = router.route(has_image=True)
         self.assertEqual(c_type, "vision")
-        self.assertEqual(model, "gemini-2.0-flash")
+        self.assertEqual(model, "gemini-3.5-flash")
 
         # Text default
         c_type, model = router.route(has_audio=False, has_image=False)
         self.assertEqual(c_type, "text")
-        self.assertEqual(model, "gemini-2.5-flash")
+        self.assertEqual(model, "gemini-3.5-flash")
 
     def test_7_command_guide_completeness(self):
         """Feature 7: Post-setup command guide contains all 9 CLI commands."""

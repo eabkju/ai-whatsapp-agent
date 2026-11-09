@@ -11,7 +11,7 @@ Intelligent, multilingual auto-reply agent for WhatsApp powered by **Google Gemi
 * **Smart Keyboard Switching**: Uses `ADBKeyboard` strictly for 1–2 seconds to send Unicode text, then immediately restores your personal keyboard (Gboard, Samsung Keyboard, etc.).
 * **User Interference & 15s Idle Reset**: Yields instantly when you touch the screen or type; automatically resumes after 15 seconds of inactivity.
 * **Non-Intrusive Background Operation**: Never forces WhatsApp to pop up over active apps (e.g. YouTube, Browser) while replying; provides an ongoing 50-second status notification.
-* **Multimodal Intelligence**: Analyzes incoming photos (`gemini-2.0-flash` Vision) and listens to voice notes (`gemini-2.0-flash` Audio) to send contextual text replies.
+* **Multimodal Intelligence**: Analyzes incoming photos (`gemini-3.5-flash` Vision) and listens to voice notes (`gemini-3.5-flash` Audio) to send contextual text replies.
 * **Privacy & Safety Guardrails**: Zero cross-contact data leakage, natural Islamic etiquette (*Assalamu Alaikum*, *Alhamdulillah*, *InshaALLAH*, *Allah Hafez*), and strict deterministic medical advice disclaimer.
 * **Hardware Resilience**: Automatically pauses during incoming or active phone calls; suspends while screen is locked and resumes cleanly when unlocked.
 * **Wireless ADB (Wi-Fi Only)**: Operates seamlessly over Android Wireless Debugging (Wi-Fi) without requiring USB cables.

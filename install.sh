@@ -3,6 +3,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH}"
 echo "Installing WhatsApp AI Agent from: $SCRIPT_DIR"
 
 # Target directories
@@ -34,7 +35,8 @@ for cmd in "${COMMANDS[@]}"; do
     ACTION="$(echo "$cmd" | sed 's/-ai-whatsapp//')"
     cat << EOF > "$SRC"
 #!/usr/bin/env bash
-export PYTHONPATH="$SCRIPT_DIR:\${PYTHONPATH}"
+AGENT_DIR="\${WHATSAPP_AGENT_DIR:-$SCRIPT_DIR}"
+export PYTHONPATH="\${AGENT_DIR}:\${PYTHONPATH}"
 exec python3 -m whatsapp_agent.cli.commands "$ACTION" "\$@"
 EOF
     chmod +x "$SRC"
@@ -67,6 +69,11 @@ if [ -f "$SCRIPT_DIR/install_adb_keyboard.sh" ]; then
     bash "$SCRIPT_DIR/install_adb_keyboard.sh" || true
 fi
 
-echo ""
-echo "Installation completed! Running initial hardware & UI onboarding..."
-python3 -m whatsapp_agent.cli.setup_wizard
+if [[ "$*" != *"--no-wizard"* && "$*" != *"--skip-wizard"* ]]; then
+    echo ""
+    echo "Installation completed! Running initial hardware & UI onboarding..."
+    python3 -m whatsapp_agent.cli.setup_wizard
+else
+    echo ""
+    echo "Installation completed!"
+fi

@@ -2,6 +2,7 @@ import re
 import os
 import time
 import base64
+import tempfile
 
 class AudioAgent:
     def __init__(self, adb_client, search_paths=None):
@@ -75,7 +76,8 @@ class AudioAgent:
         if not latest_file:
             return None
 
-        local_tmp = "/tmp/wa_latest_voice.opus"
+        tmp_dir = "/tmp" if os.access("/tmp", os.W_OK) else tempfile.gettempdir()
+        local_tmp = os.path.join(tmp_dir, "wa_latest_voice.opus")
         if os.path.exists(local_tmp):
             try: os.remove(local_tmp)
             except Exception: pass

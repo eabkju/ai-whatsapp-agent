@@ -5,7 +5,7 @@ import signal
 import subprocess
 import json
 import urllib.request
-from ..config.settings import load_settings, save_settings
+from ..config.settings import load_settings, save_settings, get_writable_temp_dir
 from ..core.service_controller import ServiceController
 from ..core.adb_client import ADBClient
 from .diagnostics import run_diagnostics
@@ -38,7 +38,7 @@ def print_command_guide():
 
 def test_api_key(key):
     """Quick validation ping to Gemini API."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={key}"
     payload = {
         "contents": [{"parts": [{"text": "ping"}]}],
         "generationConfig": {"maxOutputTokens": 3}
@@ -58,7 +58,8 @@ def test_api_key(key):
 
 def start_service(background=True, cli_key=None):
     settings = load_settings()
-    pid_file = settings.get("pid_file", "/tmp/whatsapp_ai_agent.pid")
+    default_pid = os.path.join(get_writable_temp_dir(), "whatsapp_ai_agent.pid")
+    pid_file = settings.get("pid_file") or default_pid
     
     existing_pid = ServiceController.get_running_pid(pid_file)
     if existing_pid:
@@ -97,7 +98,7 @@ def start_service(background=True, cli_key=None):
 
     if background:
         print(f"{CYAN}[*] Starting WhatsApp AI Agent in background...{RESET}")
-        log_file = "/tmp/whatsapp_ai_agent.log"
+        log_file = os.path.join(get_writable_temp_dir(), "whatsapp_ai_agent.log")
         with open(log_file, "a") as f_out:
             proc = subprocess.Popen(
                 [sys.executable, script_path],
@@ -115,7 +116,8 @@ def start_service(background=True, cli_key=None):
 
 def pause_service():
     settings = load_settings()
-    pid_file = settings.get("pid_file", "/tmp/whatsapp_ai_agent.pid")
+    default_pid = os.path.join(get_writable_temp_dir(), "whatsapp_ai_agent.pid")
+    pid_file = settings.get("pid_file") or default_pid
     pid = ServiceController.get_running_pid(pid_file)
     if not pid:
         print(f"{RED}[!] WhatsApp AI Agent daemon is not running.{RESET}")
@@ -128,7 +130,8 @@ def pause_service():
 
 def resume_service():
     settings = load_settings()
-    pid_file = settings.get("pid_file", "/tmp/whatsapp_ai_agent.pid")
+    default_pid = os.path.join(get_writable_temp_dir(), "whatsapp_ai_agent.pid")
+    pid_file = settings.get("pid_file") or default_pid
     pid = ServiceController.get_running_pid(pid_file)
     if not pid:
         print(f"{RED}[!] WhatsApp AI Agent daemon is not running.{RESET}")
@@ -141,7 +144,8 @@ def resume_service():
 
 def stop_service():
     settings = load_settings()
-    pid_file = settings.get("pid_file", "/tmp/whatsapp_ai_agent.pid")
+    default_pid = os.path.join(get_writable_temp_dir(), "whatsapp_ai_agent.pid")
+    pid_file = settings.get("pid_file") or default_pid
     pid = ServiceController.get_running_pid(pid_file)
     if not pid:
         print(f"{YELLOW}[!] WhatsApp AI Agent daemon is not running.{RESET}")
@@ -159,7 +163,8 @@ def stop_service():
 
 def minimize_service():
     settings = load_settings()
-    pid_file = settings.get("pid_file", "/tmp/whatsapp_ai_agent.pid")
+    default_pid = os.path.join(get_writable_temp_dir(), "whatsapp_ai_agent.pid")
+    pid_file = settings.get("pid_file") or default_pid
     pid = ServiceController.get_running_pid(pid_file)
     if not pid:
         print(f"{YELLOW}[!] Agent is not running. Starting in background first...{RESET}")

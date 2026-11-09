@@ -2,6 +2,7 @@ import re
 import os
 import subprocess
 import base64
+import tempfile
 
 class VisionAgent:
     def __init__(self, adb_client):
@@ -48,8 +49,9 @@ class VisionAgent:
         if not raw_png:
             return None
 
-        tmp_raw = "/tmp/wa_raw_screen.png"
-        tmp_crop = "/tmp/wa_crop_image.png"
+        tmp_dir = "/tmp" if os.access("/tmp", os.W_OK) else tempfile.gettempdir()
+        tmp_raw = os.path.join(tmp_dir, "wa_raw_screen.png")
+        tmp_crop = os.path.join(tmp_dir, "wa_crop_image.png")
 
         with open(tmp_raw, "wb") as f:
             f.write(raw_png)

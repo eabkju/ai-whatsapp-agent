@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import urllib.request
-from ..config.settings import load_settings
+from ..config.settings import load_settings, get_writable_temp_dir
 from ..core.adb_client import ADBClient
 from ..core.device_guard import DeviceGuard
 from ..core.service_controller import ServiceController
@@ -23,7 +23,8 @@ def run_diagnostics():
     settings = load_settings()
     device_id = settings.get("device_id", "").strip()
     api_key = settings.get("gemini_api_key", "")
-    pid_file = settings.get("pid_file", "/tmp/whatsapp_ai_agent.pid")
+    default_pid = os.path.join(get_writable_temp_dir(), "whatsapp_ai_agent.pid")
+    pid_file = settings.get("pid_file") or default_pid
     
     issues_found = 0
 
@@ -106,7 +107,7 @@ def run_diagnostics():
         print(f"  {RED}[✗] No Gemini API Key configured in settings.json!{RESET}")
         issues_found += 1
     else:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
         test_payload = {
             "contents": [{"parts": [{"text": "Reply with 'OK'"}]}],
             "generationConfig": {"maxOutputTokens": 5}
