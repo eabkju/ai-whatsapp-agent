@@ -25,19 +25,18 @@ COMMANDS=(
     "minimize-ai-whatsapp"
     "logout-ai-whatsapp"
     "check-ai-whatsapp"
+    "pair-ai-whatsapp"
+    "connect-ai-whatsapp"
 )
 
 for cmd in "${COMMANDS[@]}"; do
     SRC="$LOCAL_BIN/$cmd"
-    if [ ! -f "$SRC" ]; then
-        ACTION="$(echo "$cmd" | sed 's/-ai-whatsapp//')"
-        cat << EOF > "$SRC"
+    ACTION="$(echo "$cmd" | sed 's/-ai-whatsapp//')"
+    cat << EOF > "$SRC"
 #!/usr/bin/env bash
-SCRIPT_BASE="$(cd "\$(dirname "\${BASH_SOURCE[0]}")/../.." && pwd)"
-export PYTHONPATH="\${SCRIPT_BASE}:\${PYTHONPATH}"
+export PYTHONPATH="$SCRIPT_DIR:\${PYTHONPATH}"
 exec python3 -m whatsapp_agent.cli.commands "$ACTION" "\$@"
 EOF
-    fi
     chmod +x "$SRC"
     echo "[✓] Configured in $LOCAL_BIN/$cmd"
 

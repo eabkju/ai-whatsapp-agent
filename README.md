@@ -52,10 +52,40 @@ Intelligent, multilingual auto-reply agent for WhatsApp powered by **Google Gemi
    bash install.sh
    ```
 3. The installer will:
-   * Install all 7 CLI commands in `$PREFIX/bin` (Termux) and `~/.local/bin`.
+   * Install all 9 CLI commands in `$PREFIX/bin` (Termux) and `~/.local/bin`.
    * Configure background wake-locks and battery optimization exemptions.
    * Verify your Wireless ADB connection (`<PHONE_IP:PORT>`).
    * Prompt you for your **Google Gemini API Key** and **Agent Name** (securely saved with `chmod 600`).
+
+---
+
+## 📲 Standalone On-Device Termux Setup (No PC, No USB Cable)
+
+You can run the entire agent standalone on your Android phone using **Android 11+ Wireless Debugging over Localhost (`127.0.0.1`)**:
+
+1. **Enable Wireless Debugging**:
+   * Open Android **Settings > Developer Options > Wireless Debugging** and toggle it **ON**.
+2. **Pair with Termux (Once)**:
+   * Split-screen or open Termux in a floating/multi-window.
+   * Tap **"Pair device with pairing code"** in Developer Options.
+   * In Termux, run:
+     ```bash
+     pair-ai-whatsapp
+     ```
+   * Enter the 5-digit pairing port and 6-digit code shown on your screen.
+3. **Connect to Localhost**:
+   * Look at the main Wireless Debugging screen under **"IP address & Port"**.
+   * Run:
+     ```bash
+     connect-ai-whatsapp <PORT>
+     ```
+     *(Example: `connect-ai-whatsapp 39485`)*
+4. **Launch the Agent**:
+   ```bash
+   start-ai-whatsapp
+   ```
+
+*(Whenever your phone reboots or you toggle Wireless Debugging, simply run `connect-ai-whatsapp <NEW_PORT>` to reconnect instantly without re-pairing!)*
 
 ---
 
@@ -65,6 +95,8 @@ Once installed, you can run these commands from anywhere in your terminal:
 
 | Command | Description |
 | :--- | :--- |
+| **`pair-ai-whatsapp`** | Interactively pairs Termux with phone's Wireless Debugging on localhost (`127.0.0.1`). |
+| **`connect-ai-whatsapp`** | Connects or reconnects to on-device Wireless ADB (accepts port argument, e.g. `connect-ai-whatsapp 39485`). |
 | **`check-ai-whatsapp`** | Runs full diagnostic check (ADB, screen state, calls, keyboard, Gemini quota, WhatsApp UI frames). |
 | **`start-ai-whatsapp`** | Starts the agent daemon in the background (prompts for API key if missing). |
 | **`minimize-ai-whatsapp`**| Minimizes WhatsApp/terminal and activates silent background mode. |

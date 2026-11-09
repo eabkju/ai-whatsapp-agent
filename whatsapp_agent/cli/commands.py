@@ -28,6 +28,8 @@ COMMAND_GUIDE = f"""
 {BOLD}logout-ai-whatsapp{RESET}     -> Wipe current Gemini API key and set a new key
 {BOLD}stop-ai-whatsapp{RESET}       -> Safely stop the agent daemon completely
 {BOLD}check-ai-whatsapp{RESET}      -> Comprehensive system diagnosis & troubleshooting
+{BOLD}pair-ai-whatsapp{RESET}       -> Pair with phone's Wireless Debugging (localhost)
+{BOLD}connect-ai-whatsapp{RESET}    -> Connect/reconnect to Wireless ADB port (e.g. 39485)
 {BOLD}{CYAN}======================================================={RESET}
 """
 
@@ -84,13 +86,12 @@ def start_service(background=True, cli_key=None):
     except Exception:
         pass
 
-    device_id = settings.get("device_id", "192.168.0.140:35105")
+    device_id = settings.get("device_id", "").strip()
     adb = ADBClient(device_id=device_id)
-    try:
-        adb.run_adb(["shell", "dumpsys", "deviceidle", "whitelist", "+com.whatsapp"])
-        adb.run_adb(["shell", "dumpsys", "deviceidle", "whitelist", "+com.termux"])
-    except Exception:
-        pass
+    if not adb.check_connection():
+        print(f"\n{RED}[!] Wireless ADB is not connected.{RESET}")
+        print(f"    {YELLOW}Run 'connect-ai-whatsapp <PORT>' (or 'pair-ai-whatsapp' if pairing for the first time).{RESET}\n")
+        return
 
     script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "whatsapp_ai_agent.py"))
 
@@ -164,7 +165,7 @@ def minimize_service():
         print(f"{YELLOW}[!] Agent is not running. Starting in background first...{RESET}")
         start_service(background=True)
     
-    device_id = settings.get("device_id", "192.168.0.140:35105")
+    device_id = settings.get("device_id", "").strip()
     adb = ADBClient(device_id=device_id)
 
     # Send HOME to minimize screen apps
@@ -205,6 +206,109 @@ def logout_service():
     else:
         print(f"{YELLOW}[i] No key set. You will be prompted on next 'start-ai-whatsapp'.{RESET}\n")
 
+def pair_service():
+    """Interactive pairing with Android Wireless Debugging on localhost (127.0.0.1)."""
+    settings = load_settings()
+    adb = ADBClient()
+    print(f"\n{BOLD}{CYAN}======================================================={RESET}")
+    print(f"{BOLD}{GREEN}   On-Device Wireless ADB Pairing (Termux Localhost)  {RESET}")
+    print(f"{BOLD}{CYAN}======================================================={RESET}\n")
+    print(f"  {BOLD}Step 1:{RESET} Open Android {CYAN}Settings > Developer Options > Wireless Debugging{RESET}.")
+    print(f"  {BOLD}Step 2:{RESET} Tap {CYAN}'Pair device with pairing code'{RESET}.")
+    print(f"         (A popup will show a 6-digit code and a port number)\n")
+
+    try:
+        pairing_port = input(f"{YELLOW}Enter the Pairing Port (e.g. 41235 or full IP:Port): {RESET}").strip()
+    except (EOFError, KeyboardInterrupt):
+        return
+    if not pairing_port:
+        print(f"{RED}[!] Pairing port is required.{RESET}")
+        return
+
+    try:
+        pairing_code = input(f"{YELLOW}Enter the 6-digit Pairing Code: {RESET}").strip()
+    except (EOFError, KeyboardInterrupt):
+        return
+    if not pairing_code:
+        print(f"{RED}[!] Pairing code is required.{RESET}")
+        return
+
+    target = f"127.0.0.1:{pairing_port}" if pairing_port.isdigit() else pairing_port
+    print(f"\n  [*] Pairing with {target}...")
+    success, msg = adb.pair_wifi(target, pairing_code)
+    if success:
+        print(f"  {GREEN}{BOLD}[✓] Phone successfully paired with Termux on localhost!{RESET}\n")
+        print(f"  {BOLD}Step 3:{RESET} Close the pairing popup and look at the main Wireless Debugging screen.")
+        print(f"         Find the port number under {CYAN}'IP address & Port'{RESET}.\n")
+        try:
+            connect_port = input(f"{YELLOW}Enter the Connection Port (e.g. 39485): {RESET}").strip()
+        except (EOFError, KeyboardInterrupt):
+            connect_port = ""
+        if connect_port:
+            conn_target = f"127.0.0.1:{connect_port}" if connect_port.isdigit() else connect_port
+            print(f"  [*] Connecting to {conn_target}...")
+            if adb.connect_wifi(conn_target):
+                print(f"  {GREEN}{BOLD}[✓] Successfully connected to {conn_target}!{RESET}")
+                settings["device_id"] = conn_target
+                save_settings(settings)
+                apk_candidates = [
+                    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ADBKeyboard.apk")),
+                    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../ADBKeyboard.apk")),
+                    os.path.expanduser("~/ADBKeyboard.apk")
+                ]
+                found_apk = next((p for p in apk_candidates if os.path.exists(p)), None)
+                adb.ensure_adb_keyboard(apk_path=found_apk)
+                print(f"  {GREEN}[✓] ADBKeyboard verified and ready!{RESET}")
+                print(f"\n{BOLD}{GREEN}You can now start the agent anytime by running: start-ai-whatsapp{RESET}\n")
+            else:
+                print(f"  {RED}[!] Connection to {conn_target} failed. You can connect anytime with: connect-ai-whatsapp {connect_port}{RESET}")
+    else:
+        print(f"  {RED}[✗] Pairing failed: {msg}{RESET}")
+        print(f"      Make sure Wireless Debugging is ON and the pairing popup is currently visible.")
+
+def connect_service():
+    """Quickly connects or reconnects to on-device Wireless ADB (e.g. after phone reboot)."""
+    settings = load_settings()
+    adb = ADBClient()
+
+    port_arg = None
+    for arg in sys.argv[2:]:
+        if not arg.startswith("-"):
+            port_arg = arg.strip()
+            break
+
+    if not port_arg:
+        saved = settings.get("device_id", "")
+        prompt = f"Enter Wireless Debugging Port [Press Enter to reconnect to {saved}]: " if saved else "Enter Wireless Debugging Port (e.g. 39485): "
+        try:
+            port_arg = input(f"{YELLOW}{prompt}{RESET}").strip()
+        except (EOFError, KeyboardInterrupt):
+            pass
+        if not port_arg and saved:
+            port_arg = saved
+
+    if not port_arg:
+        print(f"{RED}[!] No port or IP:Port provided.{RESET}")
+        return
+
+    target = f"127.0.0.1:{port_arg}" if port_arg.isdigit() else port_arg
+    print(f"[*] Connecting to Wireless ADB at {target}...")
+    if adb.connect_wifi(target):
+        print(f"{GREEN}{BOLD}[✓] Successfully connected to {target}!{RESET}")
+        settings["device_id"] = target
+        save_settings(settings)
+        apk_candidates = [
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ADBKeyboard.apk")),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../ADBKeyboard.apk")),
+            os.path.expanduser("~/ADBKeyboard.apk")
+        ]
+        found_apk = next((p for p in apk_candidates if os.path.exists(p)), None)
+        adb.ensure_adb_keyboard(apk_path=found_apk)
+        print(f"{GREEN}[✓] You're all set! Run 'start-ai-whatsapp' to launch.{RESET}")
+    else:
+        print(f"{RED}[✗] Failed to connect to {target}.{RESET}")
+        print(f"    Check that Settings > Developer Options > Wireless Debugging is ON.")
+
 def check_service():
     run_diagnostics()
 
@@ -214,7 +318,7 @@ def main():
         sys.exit(0)
 
     cmd = sys.argv[1].lower()
-    
+
     cli_key = None
     if "--key" in sys.argv:
         try:
@@ -238,6 +342,10 @@ def main():
         logout_service()
     elif cmd in ("check", "check-ai-whatsapp"):
         check_service()
+    elif cmd in ("pair", "pair-ai-whatsapp"):
+        pair_service()
+    elif cmd in ("connect", "connect-ai-whatsapp"):
+        connect_service()
     elif cmd in ("setup", "setup-wizard"):
         from .setup_wizard import run_setup
         run_setup()

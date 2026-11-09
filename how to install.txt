@@ -1,0 +1,10 @@
+pkg update
+pkg install gh -y
+gh auth login
+pkh install git
+gh repo clone eabkju/ai-whatsapp-agent
+cd ./ai-whatsapp-agent
+bash setup_termux_env.sh
+ >turn on wifi debugging, copy the device own ip:port address & hit enter >then N>
+
+> provide your api key,collected from here https://aistudio.google.com/api-keys

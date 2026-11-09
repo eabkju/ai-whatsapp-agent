@@ -59,10 +59,12 @@ class ADBClient:
         return None, None
 
     def connect_wifi(self, ip_port):
-        """Connects to a Wireless ADB target via IP:Port."""
+        """Connects to a Wireless ADB target via IP:Port or local port."""
         if not ip_port:
             return False
-        clean_target = ip_port.strip()
+        clean_target = str(ip_port).strip()
+        if clean_target.isdigit():
+            clean_target = f"127.0.0.1:{clean_target}"
         try:
             res = subprocess.run(["adb", "connect", clean_target], capture_output=True, text=True, timeout=10)
             time.sleep(1.0)
@@ -84,17 +86,23 @@ class ADBClient:
     def pair_wifi(self, pairing_ip_port, pairing_code):
         """Pairs with Android Wireless Debugging using 6-digit code."""
         if not pairing_ip_port or not pairing_code:
-            return False
+            return False, "Missing target or code"
+        target = str(pairing_ip_port).strip()
+        if target.isdigit():
+            target = f"127.0.0.1:{target}"
         try:
             res = subprocess.run(
-                ["adb", "pair", pairing_ip_port.strip(), str(pairing_code).strip()],
+                ["adb", "pair", target, str(pairing_code).strip()],
                 capture_output=True,
                 text=True,
                 timeout=15
             )
-            return "successfully paired" in res.stdout.lower()
-        except Exception:
-            return False
+            out = (res.stdout or "") + " " + (res.stderr or "")
+            if "successfully paired" in out.lower():
+                return True, "Successfully paired!"
+            return False, out.strip() or "Pairing failed"
+        except Exception as e:
+            return False, str(e)
 
     def ensure_adb_keyboard(self, apk_path=None):
         """Ensures ADBKeyboard is installed and activated on the Wi-Fi connected device."""

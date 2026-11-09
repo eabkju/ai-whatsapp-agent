@@ -184,7 +184,7 @@ class TestAllFeatures(unittest.TestCase):
         self.assertEqual(model, "gemini-2.5-flash")
 
     def test_7_command_guide_completeness(self):
-        """Feature 7: Post-setup command guide contains all 7 CLI commands."""
+        """Feature 7: Post-setup command guide contains all 9 CLI commands."""
         expected_cmds = [
             "start-ai-whatsapp",
             "pause-ai-whatsapp",
@@ -192,7 +192,9 @@ class TestAllFeatures(unittest.TestCase):
             "minimize-ai-whatsapp",
             "logout-ai-whatsapp",
             "stop-ai-whatsapp",
-            "check-ai-whatsapp"
+            "check-ai-whatsapp",
+            "pair-ai-whatsapp",
+            "connect-ai-whatsapp"
         ]
         for cmd in expected_cmds:
             self.assertIn(cmd, COMMAND_GUIDE)

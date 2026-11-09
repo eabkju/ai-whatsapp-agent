@@ -21,7 +21,7 @@ def run_diagnostics():
     print(f"{BOLD}{CYAN}======================================================={RESET}\n")
 
     settings = load_settings()
-    device_id = settings.get("device_id", "192.168.0.140:35105")
+    device_id = settings.get("device_id", "").strip()
     api_key = settings.get("gemini_api_key", "")
     pid_file = settings.get("pid_file", "/tmp/whatsapp_ai_agent.pid")
     
