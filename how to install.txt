@@ -1,10 +1,17 @@
-pkg update
-pkg install gh -y
+pkg update -y
+pkg install git gh -y
 gh auth login
-pkh install git
 gh repo clone eabkju/ai-whatsapp-agent
-cd ./ai-whatsapp-agent
+cd ai-whatsapp-agent
 bash setup_termux_env.sh
- >turn on wifi debugging, copy the device own ip:port address & hit enter >then N>
 
-> provide your api key,collected from here https://aistudio.google.com/api-keys
+1. In Android Settings > Developer Options > Wireless Debugging:
+   Tap "Pair device with pairing code"
+2. In Termux run:
+   pair-ai-whatsapp
+3. Check the port under "IP address & Port" and connect:
+   connect-ai-whatsapp <PORT>
+4. Get your free Gemini API key:
+   https://aistudio.google.com/api-keys
+5. Launch the agent:
+   start-ai-whatsapp
