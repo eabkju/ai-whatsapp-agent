@@ -110,7 +110,10 @@ def run_diagnostics():
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
         test_payload = {
             "contents": [{"parts": [{"text": "Reply with 'OK'"}]}],
-            "generationConfig": {"maxOutputTokens": 5}
+            "generationConfig": {
+                "maxOutputTokens": 20,
+                "thinkingConfig": {"thinkingBudget": 0}
+            }
         }
         try:
             req = urllib.request.Request(
@@ -118,7 +121,7 @@ def run_diagnostics():
                 data=json.dumps(test_payload).encode("utf-8"),
                 headers={"Content-Type": "application/json"}
             )
-            with urllib.request.urlopen(req, timeout=8) as resp:
+            with urllib.request.urlopen(req, timeout=12) as resp:
                 resp_json = json.loads(resp.read().decode("utf-8"))
                 if "candidates" in resp_json:
                     print(f"  {GREEN}[✓] Gemini API authenticated successfully and quota is active.{RESET}")
