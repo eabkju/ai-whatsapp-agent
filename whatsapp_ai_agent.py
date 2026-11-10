@@ -44,7 +44,7 @@ class WhatsAppAIAgent:
         self.gemini_key = self.settings.get("gemini_api_key", os.environ.get("GEMINI_API_KEY", ""))
         self.agent_name = self.settings.get("agent_name", "Personal AI Assistant")
         self.cooldown_seconds = self.settings.get("cooldown_seconds", 8)
-        self.user_idle_timeout = self.settings.get("user_idle_timeout", 15)
+        self.user_idle_timeout = self.settings.get("user_idle_timeout", 25)
         self.bg_notify_interval = self.settings.get("bg_notify_interval", 50)
         self.poll_interval = self.settings.get("poll_interval", 0.8)
         self.idle_poll_interval = self.settings.get("idle_poll_interval", 1.5)
@@ -73,6 +73,15 @@ class WhatsAppAIAgent:
     def check_connection(self):
         return self.adb.check_connection()
 
+    def ensure_whatsapp_foreground(self):
+        """Brings WhatsApp to foreground if not currently active."""
+        if not self.bg_worker.is_whatsapp_foreground():
+            self.adb.run_adb(["shell", "am start -n com.whatsapp/.home.ui.HomeActivity"])
+            time.sleep(0.6)
+            if not self.bg_worker.is_whatsapp_foreground():
+                self.adb.run_adb(["shell", "monkey -p com.whatsapp -c android.intent.category.LAUNCHER 1"])
+                time.sleep(0.8)
+
     def return_to_home(self):
         """Guarantees returning to WhatsApp HomeActivity cleanly without popping up over other apps."""
         self.keyboard_mgr.record_agent_action()
@@ -80,28 +89,30 @@ class WhatsAppAIAgent:
         if not self.bg_worker.is_whatsapp_foreground() and self.bg_worker.is_minimized_mode:
             return True
 
+        if not self.bg_worker.is_whatsapp_foreground():
+            self.ensure_whatsapp_foreground()
+
         back_btn = self.ui_coords.get("back_button", [66, 176])
         for _ in range(3):
-            top = self.adb.run_adb(["shell", "dumpsys activity activities | grep -E 'topResumedActivity'"])
-            if "com.whatsapp/.home.ui.HomeActivity" in top:
+            focus = self.adb.run_adb(["shell", "dumpsys window | grep -E 'mCurrentFocus'"])
+            if "com.whatsapp.home.ui.HomeActivity" in focus:
                 return True
             
             # 1. Tap top-left back button
             self.adb.tap(back_btn[0], back_btn[1])
             time.sleep(0.3)
 
-            top = self.adb.run_adb(["shell", "dumpsys activity activities | grep -E 'topResumedActivity'"])
-            if "com.whatsapp/.home.ui.HomeActivity" in top:
+            focus = self.adb.run_adb(["shell", "dumpsys window | grep -E 'mCurrentFocus'"])
+            if "com.whatsapp.home.ui.HomeActivity" in focus:
                 return True
 
             # 2. Keycode back
             self.adb.keyevent(4)
             time.sleep(0.3)
 
-        # Force bring HomeActivity to front if needed and WhatsApp was already active
-        if self.bg_worker.is_whatsapp_foreground():
-            self.adb.run_adb(["shell", "am start -n com.whatsapp/.home.ui.HomeActivity"])
-            time.sleep(0.6)
+        # Force bring HomeActivity to front if needed
+        self.adb.run_adb(["shell", "am start -n com.whatsapp/.home.ui.HomeActivity"])
+        time.sleep(0.6)
         return True
 
     def is_group_chat(self, root_node):
@@ -121,6 +132,12 @@ class WhatsAppAIAgent:
         Fast XML scan of WhatsApp home screen for unread badges.
         Returns list of unread chat info dictionaries.
         """
+        if not self.bg_worker.is_whatsapp_foreground():
+            if not self.bg_worker.is_minimized_mode:
+                self.ensure_whatsapp_foreground()
+            else:
+                return []
+
         xml_str = self.adb.dump_ui(compressed=True)
         if not xml_str or "<hierarchy" not in xml_str:
             return []
@@ -130,7 +147,7 @@ class WhatsAppAIAgent:
             root = ET.fromstring(xml_str)
             for node in root.iter("node"):
                 rid = node.attrib.get("resource-id", "")
-                if "contact_row_container" in rid or "conversation_container" in rid:
+                if rid.endswith("contact_row_container"):
                     has_unread = False
                     is_group = False
                     contact_name = None
@@ -140,7 +157,9 @@ class WhatsAppAIAgent:
                     for child in node.iter("node"):
                         c_rid = child.attrib.get("resource-id", "")
                         c_text = child.attrib.get("text", "")
-                        if "conversations_row_message_count" in c_rid:
+                        c_desc = child.attrib.get("content-desc", "")
+
+                        if "conversations_row_message_count" in c_rid or "unread" in c_desc.lower() or "unread" in c_text.lower():
                             has_unread = True
                         if "conversations_row_contact_name" in c_rid and c_text:
                             contact_name = c_text
@@ -367,6 +386,7 @@ class WhatsAppAIAgent:
         # Keep screen awake and set initial keyboard to ADBKeyboard
         self.guard.prevent_screen_sleep()
         self.keyboard_mgr.switch_to_adb_keyboard()
+        self.ensure_whatsapp_foreground()
         self.return_to_home()
 
         while True:

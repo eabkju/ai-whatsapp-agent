@@ -99,12 +99,15 @@ def start_service(background=True, cli_key=None):
     if background:
         print(f"{CYAN}[*] Starting WhatsApp AI Agent in background...{RESET}")
         log_file = os.path.join(get_writable_temp_dir(), "whatsapp_ai_agent.log")
+        repo_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        env = dict(os.environ, PYTHONPATH=repo_dir, PYTHONUNBUFFERED="1")
         with open(log_file, "a") as f_out:
             proc = subprocess.Popen(
-                [sys.executable, script_path],
+                [sys.executable, "-u", script_path],
                 stdout=f_out,
                 stderr=f_out,
-                start_new_session=True
+                start_new_session=True,
+                env=env
             )
         time.sleep(1.2)
         new_pid = ServiceController.get_running_pid(pid_file) or proc.pid

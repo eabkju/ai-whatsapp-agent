@@ -75,8 +75,9 @@ class AIService:
         payload = {
             "contents": [{"parts": parts}],
             "generationConfig": {
-                "maxOutputTokens": 120,
-                "temperature": 0.7
+                "maxOutputTokens": 1000,
+                "temperature": 0.7,
+                "thinkingConfig": {"thinkingBudget": 0}
             }
         }
 

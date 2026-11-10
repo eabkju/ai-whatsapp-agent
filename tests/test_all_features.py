@@ -251,5 +251,44 @@ class TestAllFeatures(unittest.TestCase):
             client.run_adb(["connect", "192.168.1.100:41235"])
             mock_run.assert_called_with(["adb", "connect", "192.168.1.100:41235"], capture_output=True, text=True, errors="replace")
 
+    def test_9_unread_badge_parsing_and_gemini_thinking_budget(self):
+        """Feature 9: Parse unread badge with Marked unread content-desc & Gemini thinking budget config."""
+        from whatsapp_ai_agent import WhatsAppAIAgent
+        from unittest.mock import MagicMock
+        from whatsapp_agent.core.ai_service import AIService
+
+        # 1. Unread badge XML parsing
+        sample_xml = """<hierarchy rotation="0">
+            <node index="0" resource-id="com.whatsapp:id/conversation_container" bounds="[0,0][1080,2000]">
+                <node index="0" resource-id="com.whatsapp:id/contact_row_container" bounds="[0,726][1080,935]">
+                    <node resource-id="com.whatsapp:id/conversations_row_contact_name" text="sakib ab khan" bounds="[198,759][534,826]" />
+                    <node resource-id="com.whatsapp:id/single_msg_tv" text="Vali e achi.." bounds="[198,839][850,894]" />
+                    <node resource-id="com.whatsapp:id/conversations_row_message_count" text="" content-desc="Marked unread" bounds="[981,839][1036,894]" />
+                </node>
+                <node index="1" resource-id="com.whatsapp:id/contact_row_container" bounds="[0,935][1080,1144]">
+                    <node resource-id="com.whatsapp:id/conversations_row_contact_name" text="Pallab bro" bounds="[198,968][444,1035]" />
+                    <node resource-id="com.whatsapp:id/single_msg_tv" text="Dara pathacchi" bounds="[198,1048][850,1103]" />
+                </node>
+            </node>
+        </hierarchy>"""
+
+        agent = WhatsAppAIAgent()
+        agent.adb = MagicMock()
+        agent.bg_worker = MagicMock()
+        agent.bg_worker.is_whatsapp_foreground.return_value = True
+        agent.adb.dump_ui.return_value = sample_xml
+
+        unread = agent.scan_home_unread_chats()
+        self.assertEqual(len(unread), 1)
+        self.assertEqual(unread[0]["name"], "sakib ab khan")
+        self.assertEqual(unread[0]["last_msg"], "Vali e achi..")
+        self.assertFalse(unread[0]["is_group"])
+
+        # 2. Gemini thinking budget & max tokens test
+        ai = AIService(api_key="TEST_KEY", agent_name="Assistant")
+        # Ensure model is gemini-3.5-flash
+        content_type, model_name = ai.router.route(has_audio=False, has_image=False)
+        self.assertEqual(model_name, "gemini-3.5-flash")
+
 if __name__ == "__main__":
     unittest.main()

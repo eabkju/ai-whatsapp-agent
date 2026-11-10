@@ -70,34 +70,28 @@ class KeyboardManager:
 
     def check_user_interference(self):
         """
-        Polls window focus, power user activity, and soft keyboard visibility.
-        Detects if the human user is interacting with the screen.
+        Polls power user activity and soft keyboard visibility.
+        Detects if the human user is physically touching the screen or typing.
         """
-        cmd = "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'; dumpsys power | grep -E 'lastUserActivityTime=.*ms ago'; dumpsys input_method | grep -E 'mInputShown'"
+        cmd = "dumpsys power | grep -E 'lastUserActivityTime=.*ms ago'; dumpsys input_method | grep -E 'mInputShown'"
         out = self.adb.run_adb(["shell", cmd])
         if not out:
             return False
 
-        lines = out.strip().splitlines()
-        focus_lines = [l for l in lines if "mCurrentFocus" in l or "mFocusedApp" in l]
-        focus_text = " ".join(focus_lines)
+        time_since_agent = time.time() - self.last_agent_action
 
-        # 1. Non-WhatsApp app is in foreground focus
-        # If user opened Termux, Home launcher, Settings, Browser, etc.
-        if focus_text and "com.whatsapp" not in focus_text:
-            return True
-
-        # 2. Touch screen activity
+        # 1. Physical touch screen activity (user finger touched screen)
         activity_match = re.search(r'lastUserActivityTime=\d+\s+\((\d+)\s*ms ago\)', out)
         if activity_match:
             ms_ago = int(activity_match.group(1))
-            # Activity happened within last 2.5 seconds and was not agent's own action
-            if ms_ago < 2500 and (time.time() - self.last_agent_action > 2.5):
+            # Activity happened within last 2.5 seconds and was not agent's own automated action
+            if ms_ago < 2500 and time_since_agent > 2.5:
                 return True
 
-        # 3. Soft keyboard is actively shown for the user
-        if "mInputShown=true" in out and (time.time() - self.last_agent_action > 2.5):
-            return True
+        # 2. Soft keyboard is actively shown for user typing
+        if "mInputShown=true" in out and time_since_agent > 2.5:
+            if self.current_ime != self.adb_ime:
+                return True
 
         return False
 
@@ -120,8 +114,8 @@ class KeyboardManager:
             if not self.is_paused_for_user:
                 self.is_paused_for_user = True
                 self.restore_user_keyboard()
-                print(f"\n{YELLOW}[!] User screen interference detected!{RESET}")
-                print(f"    {CYAN}Switched keyboard to default ({self.user_ime}). Agent PAUSED.{RESET}")
+                print(f"\n{YELLOW}[!] User screen interference detected!{RESET}", flush=True)
+                print(f"    {CYAN}Switched keyboard to default ({self.user_ime}). Agent PAUSED.{RESET}", flush=True)
             return True
 
         # If currently paused waiting for 25s idle
@@ -134,8 +128,8 @@ class KeyboardManager:
                 self.is_paused_for_user = False
                 self.last_user_interaction = 0
                 self.switch_to_adb_keyboard()
-                print(f"\n{GREEN}[✓] No user interference for {int(self.idle_timeout)}s!{RESET}")
-                print(f"    {CYAN}Switched keyboard to ADBKeyboard. Agent RESUMED.{RESET}\n")
+                print(f"\n{GREEN}[✓] No user interference for {int(self.idle_timeout)}s!{RESET}", flush=True)
+                print(f"    {CYAN}Switched keyboard to ADBKeyboard. Agent RESUMED.{RESET}\n", flush=True)
                 return False
 
         # If active and no interference, ensure ADBKeyboard is current
