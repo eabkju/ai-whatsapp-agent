@@ -28,10 +28,11 @@ DEFAULT_SETTINGS = {
         "vision": "gemini-3.5-flash",
         "audio": "gemini-3.5-flash"
     },
+    "user_ime": "com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME",
     "ui_coords": {
         "back_button": [66, 176],
         "input_entry": [395, 2314],
-        "send_fallback": [988, 2314]
+        "send_fallback": [988, 2311]
     },
     "voice_notes_paths": [
         "/sdcard/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Voice Notes/",

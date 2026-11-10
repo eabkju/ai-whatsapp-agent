@@ -12,12 +12,9 @@ class BackgroundWorker:
         self.is_minimized_mode = False
 
     def is_whatsapp_foreground(self):
-        """Checks if WhatsApp is the currently active/focused app on screen."""
+        """Checks if WhatsApp is the currently active/focused window on screen."""
         out = self.adb.run_adb(["shell", "dumpsys window | grep -E 'mCurrentFocus'"])
-        if "com.whatsapp" in out:
-            return True
-        top = self.adb.run_adb(["shell", "dumpsys activity activities | grep -E 'topResumedActivity'"])
-        return "com.whatsapp" in top
+        return "com.whatsapp" in out
 
     def set_minimized_mode(self, enabled=True):
         """Toggles minimized background mode."""

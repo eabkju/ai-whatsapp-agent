@@ -55,7 +55,11 @@ class WhatsAppAIAgent:
         # Subsystems
         self.adb = ADBClient(device_id=self.device_id)
         self.guard = DeviceGuard(self.adb)
-        self.keyboard_mgr = KeyboardManager(self.adb, idle_timeout=self.user_idle_timeout)
+        self.keyboard_mgr = KeyboardManager(
+            self.adb,
+            idle_timeout=self.user_idle_timeout,
+            user_ime=self.settings.get("user_ime")
+        )
         self.bg_worker = BackgroundWorker(self.adb, notify_interval=self.bg_notify_interval)
         self.queue_mgr = QueueManager(cooldown_seconds=self.cooldown_seconds)
         self.vision = VisionAgent(self.adb)
@@ -76,8 +80,11 @@ class WhatsAppAIAgent:
     def ensure_whatsapp_foreground(self):
         """Brings WhatsApp to foreground if not currently active."""
         if not self.bg_worker.is_whatsapp_foreground():
+            # Send KEYCODE_HOME first so Android switches window focus cleanly
+            self.adb.keyevent(3)
+            time.sleep(0.4)
             self.adb.run_adb(["shell", "am start -n com.whatsapp/.home.ui.HomeActivity"])
-            time.sleep(0.6)
+            time.sleep(0.8)
             if not self.bg_worker.is_whatsapp_foreground():
                 self.adb.run_adb(["shell", "monkey -p com.whatsapp -c android.intent.category.LAUNCHER 1"])
                 time.sleep(0.8)
@@ -240,12 +247,12 @@ class WhatsAppAIAgent:
         Switches to ADBKeyboard for typing, and IMMEDIATELY restores user's keyboard.
         """
         input_entry = self.ui_coords.get("input_entry", [395, 2314])
-        fallback_send = self.ui_coords.get("send_fallback", [988, 2314])
+        fallback_send = self.ui_coords.get("send_fallback", [988, 2311])
 
         with self.keyboard_mgr.typing_session():
             # 1. Tap input box
             self.adb.tap(input_entry[0], input_entry[1])
-            time.sleep(0.3)
+            time.sleep(0.4)
 
             # 2. Broadcast Base64 Unicode text
             self.adb.send_unicode_text(text)
@@ -275,6 +282,27 @@ class WhatsAppAIAgent:
                             has_voice_button = True
                 except Exception:
                     pass
+
+            # Fast retry if voice button still pending update
+            if not send_coords and has_voice_button:
+                time.sleep(0.5)
+                xml_str = self.adb.dump_ui(compressed=True)
+                if xml_str:
+                    try:
+                        root = ET.fromstring(xml_str)
+                        for node in root.iter("node"):
+                            rid = node.attrib.get("resource-id", "")
+                            cdesc = node.attrib.get("content-desc", "").lower()
+                            if "id/send" in rid or cdesc == "send":
+                                bounds = node.attrib.get("bounds", "")
+                                m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds)
+                                if m:
+                                    x1, y1, x2, y2 = map(int, m.groups())
+                                    send_coords = ((x1 + x2) // 2, (y1 + y2) // 2)
+                                    has_voice_button = False
+                                    break
+                    except Exception:
+                        pass
 
             if send_coords:
                 self.adb.tap(send_coords[0], send_coords[1])
