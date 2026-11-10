@@ -1,4 +1,5 @@
 import json
+import time
 import urllib.request
 import urllib.error
 from .safety_guard import SafetyGuard
@@ -105,8 +106,11 @@ class AIService:
                         if parts_resp and "text" in parts_resp[0]:
                             raw_reply = parts_resp[0]["text"]
                             return self.safety_guard.filter_output(raw_reply)
-            except Exception as e:
-                # Try next model in fallback list
+            except urllib.error.HTTPError as e:
+                if e.code == 429:
+                    time.sleep(2.0)
+                continue
+            except Exception:
                 continue
 
         return None
