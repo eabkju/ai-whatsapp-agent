@@ -366,6 +366,18 @@ class WhatsAppAIAgent:
             for line in recent_msgs[-3:]:
                 print(f"   {line}")
 
+            # If last message was already sent by Me, avoid duplicate replying
+            if recent_msgs[-1].startswith("Me:") and not audio_b64 and not image_b64:
+                print(f"{YELLOW}[!] Last message was already sent by 'Me'. Skipping duplicate reply.{RESET}")
+                self.queue_mgr.record_reply_sent(name)
+                self.return_to_home()
+                return False
+
+        if self.keyboard_mgr.is_paused_for_user:
+            print(f"{YELLOW}[!] User interference detected. Aborting job to hand control to user.{RESET}")
+            self.return_to_home()
+            return False
+
         # Generate Reply via AI Service
         print(f"{CYAN}[*] Generating context-aware reply...{RESET}")
         ai_reply = self.ai.generate_reply(

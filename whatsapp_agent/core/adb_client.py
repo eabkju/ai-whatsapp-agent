@@ -7,6 +7,7 @@ class ADBClient:
     def __init__(self, device_id=None, prefer_usb=None):
         self.device_id = device_id
         self.connection_type = "Wi-Fi"
+        self.last_action_time = 0
 
     def run_adb(self, cmd_args, check=False, binary=False):
         """Executes an adb command targeting the configured device."""
@@ -160,16 +161,25 @@ class ADBClient:
 
     def tap(self, x, y):
         """Simulates touchscreen tap."""
-        self.run_adb(["shell", f"input tap {int(x)} {int(y)}"])
+        self.last_action_time = time.time()
+        res = self.run_adb(["shell", f"input tap {int(x)} {int(y)}"])
+        self.last_action_time = time.time()
+        return res
 
     def keyevent(self, keycode):
         """Sends an Android KEYCODE (e.g., 4 for BACK)."""
-        self.run_adb(["shell", f"input keyevent {keycode}"])
+        self.last_action_time = time.time()
+        res = self.run_adb(["shell", f"input keyevent {keycode}"])
+        self.last_action_time = time.time()
+        return res
 
     def send_unicode_text(self, text):
         """Broadcasts base64-encoded Unicode string to ADBKeyboard."""
+        self.last_action_time = time.time()
         b64_msg = base64.b64encode(text.encode("utf-8")).decode("utf-8")
-        self.run_adb(["shell", "am", "broadcast", "-a", "ADB_INPUT_B64", "--es", "msg", b64_msg])
+        res = self.run_adb(["shell", "am", "broadcast", "-a", "ADB_INPUT_B64", "--es", "msg", b64_msg])
+        self.last_action_time = time.time()
+        return res
 
     def take_screenshot(self):
         """Captures device screen as raw PNG bytes."""

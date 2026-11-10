@@ -24,9 +24,9 @@ DEFAULT_SETTINGS = {
     "ignore_groups": True,
     "auto_send": True,
     "models": {
-        "text": "gemini-3.5-flash",
-        "vision": "gemini-3.5-flash",
-        "audio": "gemini-3.5-flash"
+        "text": "gemini-3.5-flash-lite",
+        "vision": "gemini-3.5-flash-lite",
+        "audio": "gemini-3.5-flash-lite"
     },
     "user_ime": "com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME",
     "ui_coords": {
@@ -70,10 +70,10 @@ def load_settings():
             # Auto-migrate deprecated models
             models = merged.get("models", {})
             if isinstance(models, dict):
-                deprecated = ("gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash")
+                deprecated = ("gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-3.5-flash", "gemini-flash-latest")
                 for m_type in ("text", "vision", "audio"):
                     if models.get(m_type) in deprecated:
-                        models[m_type] = "gemini-3.5-flash"
+                        models[m_type] = "gemini-3.5-flash-lite"
                 merged["models"] = models
 
             return merged

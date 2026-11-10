@@ -1,9 +1,9 @@
 class ModelRouter:
     def __init__(self, model_config=None):
         self.model_config = model_config or {
-            "text": "gemini-3.5-flash",
-            "vision": "gemini-3.5-flash",
-            "audio": "gemini-3.5-flash"
+            "text": "gemini-3.5-flash-lite",
+            "vision": "gemini-3.5-flash-lite",
+            "audio": "gemini-3.5-flash-lite"
         }
 
     def route(self, has_audio=False, has_image=False):
@@ -12,8 +12,8 @@ class ModelRouter:
         Priority: Audio (Voice Note) > Vision (Image) > Text.
         """
         if has_audio:
-            return "audio", self.model_config.get("audio", "gemini-3.5-flash")
+            return "audio", self.model_config.get("audio", "gemini-3.5-flash-lite")
         elif has_image:
-            return "vision", self.model_config.get("vision", "gemini-3.5-flash")
+            return "vision", self.model_config.get("vision", "gemini-3.5-flash-lite")
         else:
-            return "text", self.model_config.get("text", "gemini-3.5-flash")
+            return "text", self.model_config.get("text", "gemini-3.5-flash-lite")

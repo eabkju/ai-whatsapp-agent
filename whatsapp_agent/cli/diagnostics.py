@@ -107,12 +107,11 @@ def run_diagnostics():
         print(f"  {RED}[✗] No Gemini API Key configured in settings.json!{RESET}")
         issues_found += 1
     else:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={api_key}"
         test_payload = {
             "contents": [{"parts": [{"text": "Reply with 'OK'"}]}],
             "generationConfig": {
-                "maxOutputTokens": 20,
-                "thinkingConfig": {"thinkingBudget": 0}
+                "maxOutputTokens": 20
             }
         }
         try:

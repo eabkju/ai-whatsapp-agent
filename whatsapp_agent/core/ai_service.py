@@ -77,13 +77,13 @@ class AIService:
             "contents": [{"parts": parts}],
             "generationConfig": {
                 "maxOutputTokens": 1000,
-                "temperature": 0.7,
-                "thinkingConfig": {"thinkingBudget": 0}
+                "temperature": 0.7
             }
         }
 
         # 4. Execute API Request with fallback models
-        models_to_try = [model_name, "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.8-flash"]
+        # gemini-3.5-flash-lite is fast, robust against rate-limits, and supports multimodal
+        models_to_try = [model_name, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"]
         # Deduplicate while preserving order
         unique_models = []
         for m in models_to_try:
@@ -98,7 +98,7 @@ class AIService:
                     data=json.dumps(payload).encode("utf-8"),
                     headers={"Content-Type": "application/json"}
                 )
-                with urllib.request.urlopen(req, timeout=12) as resp:
+                with urllib.request.urlopen(req, timeout=30) as resp:
                     resp_data = json.loads(resp.read().decode("utf-8"))
                     candidates = resp_data.get("candidates", [])
                     if candidates and "content" in candidates[0]:
@@ -107,10 +107,29 @@ class AIService:
                             raw_reply = parts_resp[0]["text"]
                             return self.safety_guard.filter_output(raw_reply)
             except urllib.error.HTTPError as e:
-                if e.code == 429:
-                    time.sleep(2.0)
+                body = ""
+                try:
+                    body = e.read().decode("utf-8")[:300]
+                except Exception:
+                    pass
+                print(f"[AI] HTTP {e.code} from {attempt_model}: {body[:120]}", flush=True)
+                if e.code in (429, 503):
+                    # Rate limited or high demand - wait and retry same model once
+                    time.sleep(3.0)
+                    try:
+                        with urllib.request.urlopen(req, timeout=30) as resp2:
+                            resp_data = json.loads(resp2.read().decode("utf-8"))
+                            candidates = resp_data.get("candidates", [])
+                            if candidates and "content" in candidates[0]:
+                                parts_resp = candidates[0]["content"].get("parts", [])
+                                if parts_resp and "text" in parts_resp[0]:
+                                    raw_reply = parts_resp[0]["text"]
+                                    return self.safety_guard.filter_output(raw_reply)
+                    except Exception:
+                        pass
                 continue
-            except Exception:
+            except Exception as ex:
+                print(f"[AI] Exception with {attempt_model}: {ex}", flush=True)
                 continue
 
         return None

@@ -185,17 +185,17 @@ class TestAllFeatures(unittest.TestCase):
         # Audio / Voice note
         c_type, model = router.route(has_audio=True)
         self.assertEqual(c_type, "audio")
-        self.assertEqual(model, "gemini-3.5-flash")
+        self.assertEqual(model, "gemini-3.5-flash-lite")
 
         # Vision / Image
         c_type, model = router.route(has_image=True)
         self.assertEqual(c_type, "vision")
-        self.assertEqual(model, "gemini-3.5-flash")
+        self.assertEqual(model, "gemini-3.5-flash-lite")
 
         # Text default
         c_type, model = router.route(has_audio=False, has_image=False)
         self.assertEqual(c_type, "text")
-        self.assertEqual(model, "gemini-3.5-flash")
+        self.assertEqual(model, "gemini-3.5-flash-lite")
 
     def test_7_command_guide_completeness(self):
         """Feature 7: Post-setup command guide contains all 9 CLI commands."""
@@ -286,9 +286,9 @@ class TestAllFeatures(unittest.TestCase):
 
         # 2. Gemini thinking budget & max tokens test
         ai = AIService(api_key="TEST_KEY", agent_name="Assistant")
-        # Ensure model is gemini-3.5-flash
+        # Ensure model is gemini-3.5-flash-lite
         content_type, model_name = ai.router.route(has_audio=False, has_image=False)
-        self.assertEqual(model_name, "gemini-3.5-flash")
+        self.assertEqual(model_name, "gemini-3.5-flash-lite")
 
 if __name__ == "__main__":
     unittest.main()

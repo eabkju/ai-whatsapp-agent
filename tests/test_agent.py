@@ -109,17 +109,17 @@ class TestWhatsAppAIAgent(unittest.TestCase):
         # Audio priority
         c_type, model = router.route(has_audio=True, has_image=True)
         self.assertEqual(c_type, "audio")
-        self.assertEqual(model, "gemini-3.5-flash")
+        self.assertEqual(model, "gemini-3.5-flash-lite")
 
         # Vision priority
         c_type, model = router.route(has_audio=False, has_image=True)
         self.assertEqual(c_type, "vision")
-        self.assertEqual(model, "gemini-3.5-flash")
+        self.assertEqual(model, "gemini-3.5-flash-lite")
 
         # Text default
         c_type, model = router.route(has_audio=False, has_image=False)
         self.assertEqual(c_type, "text")
-        self.assertEqual(model, "gemini-3.5-flash")
+        self.assertEqual(model, "gemini-3.5-flash-lite")
 
     def test_service_controller_states(self):
         """Tests Req 11b: Service states and pause/resume logic."""
